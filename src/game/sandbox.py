@@ -14,7 +14,7 @@ class Game:
             print("Couldn't connect to BCI server")
 
         pygame.init()
-        self.timestep = 500
+        self.timestep = 1000
         self.window = pygame.display.set_mode((800, 800))
         pygame.display.set_caption("Sandbox")
 
