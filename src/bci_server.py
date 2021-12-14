@@ -17,7 +17,7 @@ class BCIServer:
         self.extractor = Extractor()
         self.predictor = Predictor("model_file.csv")
 
-        self.commands = [b"left", b"right", b"up", b"down"]
+        self.commands = [b"left", b"right", b"up"]
         self.running = True
 
     def run(self):
