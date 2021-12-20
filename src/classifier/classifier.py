@@ -1,4 +1,4 @@
-class Predictor:
+class DemoPredictor:
     def __init__(self, model_file):
         pass  # load model here
 

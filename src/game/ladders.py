@@ -9,14 +9,17 @@ WINDOW_SIZE = 600
 
 class Game:
     def __init__(self, timestep, w_size):
-        try:
-            self.context = zmq.Context()
-            self.socket = self.context.socket(zmq.REQ)
-            self.socket.connect("tcp://localhost:5555")
-            print("Connected to BCI server")
+        self.running = True
 
-        except:
-            print("Couldn't connect to BCI server")
+        self.context = zmq.Context()
+        self.socket = self.context.socket(zmq.REQ)
+        self.socket.connect("tcp://localhost:5555")
+
+        # Implement server heartbeat
+        # self.socket.send(b"Command")
+        # command = self.socket.recv().decode("UTF-8")
+        # print(command)
+        print("Connected to BCI server")
 
         pygame.init()
         self.timestep = timestep
@@ -41,8 +44,6 @@ class Game:
                 self.rect_size,
             )
             self.floors.extend([rect1, rect2])
-
-        self.running = True
 
     def run(self):
         while self.running:
