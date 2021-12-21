@@ -7,19 +7,16 @@ from classifier.classifier import DemoPredictor
 
 
 class BCIServer:
-    def __init__(self, mode):
-        self.mode = mode
+    def __init__(self, sim):
+        self.sim = sim
         self.context = zmq.Context()
         self.socket = self.context.socket(zmq.REP)
         self.socket.bind("tcp://*:5555")
         print("BCI server started")
 
-        if self.mode == "demo":
-            self.data_handler = DemoHandler()
-            self.extractor = DemoExtractor()
-            self.predictor = DemoPredictor("model_file.csv")
-        else:
-            self.data_handler = OpenBCIHandler(n_samples=100)
+        self.data_handler = OpenBCIHandler(sim=self.sim)
+        self.extractor = DemoExtractor()
+        self.predictor = DemoPredictor("model_file.csv")
 
         self.commands = [b"left", b"right", b"up"]
         self.running = True
@@ -27,7 +24,7 @@ class BCIServer:
     def run(self):
         while self.running:
             message = self.socket.recv()
-            raw = self.data_handler.get_current_data()
+            raw = self.data_handler.get_current_data(n_samples=100)
             processed = self.extractor.process(raw)
             prediction = self.predictor.predict(processed)
             print(f"raw: {raw}, processed: {processed}, pred: {prediction}")
@@ -37,5 +34,5 @@ class BCIServer:
 
 
 if __name__ == "__main__":
-    server = BCIServer(mode="demo")
+    server = BCIServer(sim=True)
     server.run()
