@@ -1,0 +1,5 @@
+## Headset specific variables
+SERIAL_PORT=myserialport 
+
+# Set the brainflow board ID corresponding to your amplifier board (see https://brainflow.readthedocs.io/en/stable/SupportedBoards.html)
+BOARD_ID=2 

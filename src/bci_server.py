@@ -1,7 +1,8 @@
+import argparse
 import zmq
 from random import randint
 from numpy.random import normal
-from data_api.data_handler import DemoHandler, OpenBCIHandler
+from data_api.data_handler import OpenBCIHandler
 from feature_extraction.preprocessing import DemoExtractor
 from classifier.classifier import DemoPredictor
 
@@ -23,16 +24,29 @@ class BCIServer:
 
     def run(self):
         while self.running:
+            if self.data_handler.status == "no_connection":
+                print("No headset connection")
+                break
+
             message = self.socket.recv()
             raw = self.data_handler.get_current_data(n_samples=100)
             processed = self.extractor.process(raw)
             prediction = self.predictor.predict(processed)
-            print(f"raw: {raw}, processed: {processed}, pred: {prediction}")
+            print(f"processed: {processed}, pred: {prediction}")
             command = self.commands[prediction]
             self.socket.send(command)
             print(f"Sent command: {command}")
 
 
 if __name__ == "__main__":
-    server = BCIServer(sim=True)
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--sim",
+        help="use simulated data instead of headset",
+        action="store_true",
+        default=False,
+    )
+    args = parser.parse_args()
+
+    server = BCIServer(sim=args.sim)
     server.run()

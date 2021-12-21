@@ -1,14 +1,20 @@
 # Demo pipeline for a BCI controlled 2D game.
 
-## Installing requirements
-First, install the necessary requirements (preferably in a virtual environment):
+## Setup
+- First, install the necessary requirements (preferably in a virtual environment):
 
-    pip3 install -r requirements.txt
+        pip3 install -r requirements.txt
+
+- Rename the '.example_env' file in the root directory to '.env' and update its environment variables
 
 ## Running the pipeline
-Start the BCI server for data acquisition and processing from the project root directory:
+Start the BCI server from the project root directory for data acquisition and processing:
 
     python3 src/bci_server.py
+
+Alternatively, run the server without an OpenBCI headset using simulated EEG data instead:
+    
+    python3 src/bci_server.py --sim
 
 Then start the game environment:
 

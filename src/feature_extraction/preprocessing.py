@@ -1,6 +1,7 @@
 from numpy.random import normal
+from random import randint
 
 
 class DemoExtractor:
     def process(self, data):
-        return data + normal(0, 0.2, 1)
+        return randint(0, 2) + normal(0, 0.2, 1)
