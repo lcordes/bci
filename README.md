@@ -12,11 +12,15 @@ Start the BCI server from the project root directory for data acquisition and pr
 
     python3 src/bci_server.py
 
-Alternatively, run the server without an OpenBCI headset using simulated EEG data instead:
+Alternatively, run the server without connecting to a headset using simulated EEG data instead:
     
     python3 src/bci_server.py --sim
 
-Then start the game environment:
+Then start the game environment with obstacles:
 
-    python3 src/game/ladders.py
+    python3 src/apps/game.py
+
+Or in sandbox mode without obstacles:
+
+    python3 src/apps/game.py --sandbox
 

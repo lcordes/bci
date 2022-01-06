@@ -1,6 +1,8 @@
 TODO.md
-src/game/assets
+src/apps/assets
+*.drawio
 *.csv
+test.py
 
 
 # Byte-compiled / optimized / DLL files
