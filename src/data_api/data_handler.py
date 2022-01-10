@@ -1,14 +1,13 @@
 from time import sleep
 import os
 from dotenv import load_dotenv
-import numpy as np
 from datetime import datetime
 from brainflow.board_shim import BoardShim, BrainFlowInputParams, BoardIds
 from brainflow.data_filter import DataFilter
 
 load_dotenv()
 SERIAL_PORT = os.environ["SERIAL_PORT"]
-BOARD_ID = os.environ["BOARD_ID"]
+BOARD_ID = int(os.environ["BOARD_ID"])
 
 BoardShim.enable_dev_board_logger()
 
@@ -37,7 +36,7 @@ class OpenBCIHandler:
         data = self.board.get_board_data()
         self.board.stop_stream()
         self.board.release_session()
-        DataFilter.write_file(data, f"Session_{session_time}.csv", "w")
+        DataFilter.write_file(data, f"data/recordings/Session_{session_time}.csv", "w")
 
 
 if __name__ == "__main__":

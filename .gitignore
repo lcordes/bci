@@ -2,7 +2,7 @@ TODO.md
 src/apps/assets
 *.drawio
 *.csv
-test.py
+*test.py
 
 
 # Byte-compiled / optimized / DLL files

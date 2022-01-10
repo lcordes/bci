@@ -1,7 +1,5 @@
 import argparse
 import zmq
-from random import randint
-from numpy.random import normal
 from data_api.data_handler import OpenBCIHandler
 from feature_extraction.preprocessing import DemoExtractor
 from classifier.classifier import DemoPredictor
@@ -25,7 +23,7 @@ class BCIServer:
     def run(self):
         while self.running:
             if self.data_handler.status == "no_connection":
-                print("No headset connection")
+                print("\n", "No headset connection, use '--sim' for simulated data")
                 break
 
             message = self.socket.recv()
