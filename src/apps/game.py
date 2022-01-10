@@ -1,8 +1,8 @@
 import argparse
 import pygame
 from pygame import Rect
-import zmq
 from random import randrange
+from bci_client import BCIClient
 
 TIMESTEP = 50
 WINDOW_SIZE = 600
@@ -10,16 +10,7 @@ WINDOW_SIZE = 600
 
 class Sandbox:
     def __init__(self, timestep, w_size):
-        self.context = zmq.Context()
-        self.socket = self.context.socket(zmq.REQ)
-        self.socket.connect("tcp://localhost:5555")
-
-        # Implement server heartbeat
-        # self.socket.send(b"Command")
-        # command = self.socket.recv().decode("UTF-8")
-        # print(command)
-        print("Connected to BCI server")
-
+        self.client = BCIClient()
         pygame.init()
         self.timestep = timestep
         self.w_size = w_size
@@ -69,8 +60,8 @@ class Sandbox:
         while True:
             pygame.time.delay(self.timestep)
 
-            self.socket.send(b"Command")
-            command = self.socket.recv().decode("UTF-8")
+            self.client.request_command()
+            command = self.client.get_command()
             new_pos = self.get_new_pos(command)
             self.player = self.check_new_pos(new_pos)
             self.redraw_screen()
