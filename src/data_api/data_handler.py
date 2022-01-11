@@ -31,12 +31,17 @@ class OpenBCIHandler:
     def get_current_data(self, n_samples=100):
         return self.board.get_current_board_data(n_samples)
 
-    def save_and_exit(self):
+    def insert_marker(self, marker):
+        self.board.insert_marker(marker)
+
+    def save_and_exit(self, session_type="Live"):
         session_time = datetime.now().strftime("%d-%m-%Y_%H:%M:%S")
         data = self.board.get_board_data()
         self.board.stop_stream()
         self.board.release_session()
-        DataFilter.write_file(data, f"data/recordings/Session_{session_time}.csv", "w")
+        DataFilter.write_file(
+            data, f"data/recordings/{session_type}_session_{session_time}.csv", "w"
+        )
 
 
 if __name__ == "__main__":
