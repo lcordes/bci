@@ -5,20 +5,20 @@ import pandas as pd
 from random import choice
 from bci_client import BCIClient
 
-TIMESTEP = 50
 WINDOW_SIZE = 600
 BLACK = (0, 0, 0)
 GREEN = (0, 255, 0)
 RED = (255, 0, 0)
 WHITE = (255, 255, 255)
+SHAPE_RADIUS = 15
+PYGAME_KEYS = {"space": pygame.K_SPACE, "esc": pygame.K_ESCAPE}
 
 
 class Checker:
-    def __init__(self, timestep, w_size, keep_log):
+    def __init__(self, w_size, keep_log):
         self.client = BCIClient()
         pygame.init()
         self.keep_log = keep_log
-        self.timestep = timestep
         self.w_size = w_size
         self.window = pygame.display.set_mode((self.w_size, self.w_size))
         self.state = "start"
@@ -26,15 +26,11 @@ class Checker:
         self.font = pygame.font.Font("freesansbold.ttf", 26)
         self.trial = 1
         self.log = []
+        self.running = True
+        self.pause = False
 
         self.window.fill(WHITE)
         pygame.display.update()
-
-    def end_app(self):
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                return True
-        return False
 
     def display_text(self, string, colour):
         text = self.font.render(string, True, colour)
@@ -44,19 +40,81 @@ class Checker:
         self.window.blit(text, textRect)
         pygame.display.update()
 
+    def draw_arrow(self):
+        m = self.w_size // 2
+        l = SHAPE_RADIUS
+        s = l * 5 // 6
+        if self.current_arrow == "up":
+            points = [(m, m - l), (m - s, m + l), (m + s, m + l)]
+        elif self.current_arrow == "left":
+            points = [(m - l, m), (m + l, m - s), (m + l, m + s)]
+        elif self.current_arrow == "right":
+            points = [(m + l, m), (m - l, m - s), (m - l, m + s)]
+
+        self.window.fill(WHITE)
+        pygame.draw.polygon(self.window, BLACK, points)
+        pygame.display.update()
+
+    def draw_circle(self):
+        self.window.fill(WHITE)
+        pygame.draw.circle(
+            self.window,
+            BLACK,
+            center=(self.w_size // 2, self.w_size // 2),
+            radius=SHAPE_RADIUS // 2,
+        )
+        pygame.display.update()
+
+    def key_pressed(self, key):
+        for event in pygame.event.get():
+            if event.type == pygame.KEYDOWN:
+                if event.key == PYGAME_KEYS[key]:
+                    return True
+        return False
+
+    def check_events(self):
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                self.save_and_exit()
+                self.running = False
+            elif event.type == pygame.KEYDOWN:
+                if event.key == PYGAME_KEYS["esc"]:
+                    self.pause = True
+
+    def save_and_exit(self):
+        data = pd.DataFrame.from_dict(self.log)
+        acc = (data["instruction"] == data["prediction"]).mean().round(2)
+        print(f"Session accuracy: {acc}")
+
+        if self.keep_log:
+            session_time = datetime.now().strftime("%d-%m-%Y_%H:%M:%S")
+            data.to_csv(f"data/recordings/Accuracy_{session_time}.csv")
+
     def run(self):
-        while True:
-            # add pause state
-            if self.state == "start":
-                # Require spacebar to start recording
-                self.display_text("Start recording", BLACK)
+        while self.running:
+            if self.pause:
+                self.display_text("Press spacebar to resume", BLACK)
+                while not self.key_pressed("space"):
+                    pass
+                self.pause = False
                 self.state = "arrow"
-                pygame.time.delay(2000)
+
+            elif self.state == "start":
+                self.display_text("Start session with spacebar", BLACK)
+
+                while not self.key_pressed("space"):
+                    pass
+                self.state = "arrow"
+
+            elif self.state == "fixdot":
+                self.draw_circle()
+                self.state = "imagine"
+                pygame.time.delay(1500)
 
             elif self.state == "arrow":
                 self.current_arrow = choice(["left", "right", "up"])
-                self.display_text(self.current_arrow, BLACK)  # Draw arrow instead
-                self.state = "imagine"
+                self.draw_arrow()
+                self.state = "fixdot"
                 pygame.time.delay(2000)
 
             elif self.state == "imagine":
@@ -81,14 +139,9 @@ class Checker:
                 print(data)
                 self.log.append(data)
                 self.trial += 1
-                pygame.time.delay(2000)  # Correct this for processing time
+                pygame.time.delay(2000)
 
-            if self.end_app():
-                if self.keep_log:
-                    session_time = datetime.now().strftime("%d-%m-%Y_%H:%M:%S")
-                    data = pd.DataFrame.from_dict(self.log)
-                    data.to_csv(f"data/recordings/Accuracy_{session_time}.csv")
-                break
+            self.check_events()
 
         pygame.quit()
 
@@ -102,5 +155,5 @@ if __name__ == "__main__":
         default=False,
     )
     args = parser.parse_args()
-    checker = Checker(TIMESTEP, WINDOW_SIZE, keep_log=args.log)
+    checker = Checker(WINDOW_SIZE, keep_log=args.log)
     checker.run()
