@@ -1,8 +1,8 @@
 import argparse
 import zmq
-from data_api.data_handler import OpenBCIHandler
+from data_acquisition.data_handler import OpenBCIHandler
 from feature_extraction.preprocessing import DemoExtractor
-from classifier.classifier import DemoPredictor
+from classification.linear_discriminant_analysis import LDA
 
 
 class BCIServer:
@@ -15,7 +15,7 @@ class BCIServer:
 
         self.data_handler = OpenBCIHandler(sim=self.sim)
         self.extractor = DemoExtractor()
-        self.predictor = DemoPredictor("model_file.csv")
+        self.predictor = LDA()
 
         self.commands = [b"left", b"right", b"up"]
         self.running = True

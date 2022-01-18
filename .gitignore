@@ -1,8 +1,11 @@
 TODO.md
 src/apps/assets
+competition
 *.drawio
 *.csv
+*.npy
 *test.py
+
 
 
 # Byte-compiled / optimized / DLL files

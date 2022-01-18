@@ -15,7 +15,7 @@ from pathlib import Path
 
 parent_dir = str(Path(__file__).parents[1].resolve())
 sys.path.append(parent_dir)
-from data_api.data_handler import OpenBCIHandler
+from data_acquisition.data_handler import OpenBCIHandler
 
 
 class Graph:
