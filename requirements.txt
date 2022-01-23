@@ -4,3 +4,4 @@ pyzmq
 numpy
 pyqtgraph
 pandas
+scipy

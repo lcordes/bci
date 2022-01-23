@@ -9,7 +9,7 @@ class LDA:
     def fit(self, X, y):
         """
         args:
-            X - A 2D array (time points * channels, maybe reverse)
+            X - A 2D array (time points * channels)
             y - A 1D array containing the class labels per time point
         """
         labels = np.unique(y)

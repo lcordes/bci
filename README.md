@@ -1,4 +1,4 @@
-# Demo pipeline for a BCI controlled 2D game.
+# Pipeline for a BCI controlled 2D game.
 
 ## Setup
 - First, install the necessary requirements (preferably in a virtual environment):
