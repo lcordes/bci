@@ -1,13 +1,19 @@
 from time import sleep
-import os
-from dotenv import load_dotenv
 from datetime import datetime
 from brainflow.board_shim import BoardShim, BrainFlowInputParams, BoardIds
 import numpy as np
 
+import os
+from dotenv import load_dotenv
+
+from classification.classifiers import DATA_PATH
+
 load_dotenv()
 SERIAL_PORT = os.environ["SERIAL_PORT"]
 BOARD_ID = int(os.environ["BOARD_ID"])
+DATA_PATH = os.environ["DATA_PATH"]
+TRIAL_LENGTH = float(os.environ["TRIAL_LENGTH"])
+TRIAL_OFFSET = float(os.environ["TRIAL_OFFSET"])
 
 BoardShim.enable_dev_board_logger()
 
@@ -21,7 +27,6 @@ class OpenBCIHandler:
             params.serial_port = SERIAL_PORT
 
         self.board = BoardShim(self.board_id, params)
-        self.n_trial_samples = 2 * self.get_sampling_rate()
         try:
             self.board.prepare_session()
             self.board.start_stream()
@@ -31,8 +36,17 @@ class OpenBCIHandler:
 
     def get_current_data(self, n_samples=None):
         if not n_samples:
-            n_samples = self.n_trial_samples
-        return self.board.get_current_board_data(n_samples).T
+            sr = self.get_sampling_rate()
+            marker_channel = 31
+            sample_channel = 0
+            n_samples = int(sr * (TRIAL_OFFSET + TRIAL_LENGTH))
+        data = self.board.get_current_board_data(n_samples)
+        data = np.delete(data, [sample_channel, marker_channel], axis=0)
+        offset_end = int(TRIAL_OFFSET * sr)
+        data = data[:, offset_end:]
+
+        data = np.expand_dims(data, axis=0)
+        return data
 
     def insert_marker(self, marker):
         self.board.insert_marker(marker)
@@ -45,7 +59,7 @@ class OpenBCIHandler:
         data = self.board.get_board_data()
         self.board.stop_stream()
         self.board.release_session()
-        np.save(f"data/recordings/{session_type}_session_{session_time}.", data)
+        np.save(f"{DATA_PATH}/recordings/{session_type}_session_{session_time}", data)
 
 
 if __name__ == "__main__":

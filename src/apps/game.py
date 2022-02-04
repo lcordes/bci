@@ -4,7 +4,7 @@ from pygame import Rect
 from random import randrange
 from bci_client import BCIClient
 
-TIMESTEP = 50
+TIMESTEP = 1000
 WINDOW_SIZE = 600
 
 

@@ -1,12 +1,14 @@
 import argparse
 import zmq
+import numpy as np
+from time import time, sleep
 from data_acquisition.data_handler import OpenBCIHandler
-from feature_extraction.preprocessing import CspExtractor, DemoExtractor
-from classification.linear_discriminant_analysis import LDA
+from feature_extraction.extractors import Extractor
+from classification.classifiers import Classifier
 
 
 class BCIServer:
-    def __init__(self, sim):
+    def __init__(self, sim, model_name):
         self.sim = sim
         self.models_path = "data/models/"  # add path from parent directory in front
         self.context = zmq.Context()
@@ -16,13 +18,11 @@ class BCIServer:
 
         self.data_handler = OpenBCIHandler(sim=self.sim)
         self.sampling_rate = self.data_handler.get_sampling_rate()
-        self.extractor = DemoExtractor()
-        self.extractor = CspExtractor(
-            sampling_rate=self.sampling_rate, models_path=self.models_path
-        )
-        self.predictor = LDA()
-
-        self.commands = [b"left", b"right", b"up"]
+        self.extractor = Extractor(type="CSP")
+        self.extractor.load_model(model_name)
+        self.predictor = Classifier(type="LDA")
+        self.predictor.load_model(model_name)
+        self.commands = {"1": b"left", "2": b"right", "3": b"up"}
         self.running = True
 
     def run(self):
@@ -31,14 +31,19 @@ class BCIServer:
                 print("\n", "No headset connection, use '--sim' for simulated data")
                 break
 
-            message = self.socket.recv()
+            _ = self.socket.recv()
+            start = time()
             raw = self.data_handler.get_current_data()
-            features = self.extractor.test(raw)
-            prediction = self.predictor.predict(features)
+            print("Raw shape:", raw.shape)
+            features = self.extractor.transform(raw)
+            print("Features shape:", features.shape)
+            prediction = int(self.predictor.predict(features))
             print(f"Prediction: {prediction}")
-            command = self.commands[prediction]
+            command = self.commands[str(prediction)]
             self.socket.send(command)
             print(f"Sent command: {command}")
+            delta = np.round(time() - start, 3)
+            print(f"Processing time: {delta} seconds\n")
 
 
 if __name__ == "__main__":
@@ -49,7 +54,14 @@ if __name__ == "__main__":
         action="store_true",
         default=False,
     )
+    parser.add_argument(
+        "--model",
+        nargs="?",
+        default="model1",
+        const="model1",
+        help="Specifies the Extractor and Classifier model name.",
+    )
     args = parser.parse_args()
 
-    server = BCIServer(sim=args.sim)
+    server = BCIServer(sim=args.sim, model_name=args.model)
     server.run()
