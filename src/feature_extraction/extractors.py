@@ -3,6 +3,7 @@ import joblib
 import numpy as np
 import os
 from dotenv import load_dotenv
+from random import randint
 
 load_dotenv()
 DATA_PATH = os.environ["DATA_PATH"]
@@ -38,8 +39,8 @@ def prepare_trials(
     # Remove non-voltage channels
     trials_cleaned = np.delete(trials, [sample_channel, marker_channel], axis=0)
     # Extract trials
-    onsets = (marker_indices + sampling_rate * TRIAL_LENGTH).astype(int)
-    samples_per_trial = int((sampling_rate * TRIAL_OFFSET))
+    onsets = (marker_indices + sampling_rate * TRIAL_OFFSET).astype(int)
+    samples_per_trial = int((sampling_rate * TRIAL_LENGTH))
     ends = onsets + samples_per_trial
 
     train_data = np.zeros(
@@ -49,14 +50,21 @@ def prepare_trials(
     for i in range(len(marker_labels)):
         train_data[i, :, :] = trials_cleaned[:, onsets[i] : ends[i]]
 
+    assert (
+        train_data.shape[2] == sampling_rate * TRIAL_LENGTH
+    ), "Number of samples is incorrect"
     return train_data, marker_labels
 
 
-class Extractor:
-    def __init__(self, type="CSP"):
+class MIExtractor:
+    def __init__(self, type="CSP", space=None):
         self.type = type
         if type == "CSP":
             self.model = CSP(n_components=30)
+            if space:
+                self.model.set_params(
+                    transform_into=space
+                )  # get optional **params to work here
         else:
             raise Exception("Extractor type does not exist.")
 
@@ -82,6 +90,11 @@ class Extractor:
 
     def transform(self, X):
         return self.model.transform(X)
+
+
+class ConcentrationExtractor:
+    def get_concentration(self, data):
+        return randint(0, 100)
 
 
 if __name__ == "__main__":

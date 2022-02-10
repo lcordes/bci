@@ -5,6 +5,7 @@ competition
 *.csv
 *.npy
 *test.py
+*.pkl
 
 
 
