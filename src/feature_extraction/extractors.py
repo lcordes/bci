@@ -3,7 +3,16 @@ import joblib
 import numpy as np
 import os
 from dotenv import load_dotenv
-from random import randint
+
+from brainflow.board_shim import BoardShim
+from brainflow.data_filter import DataFilter
+from brainflow.exit_codes import *
+from brainflow.ml_model import (
+    MLModel,
+    BrainFlowMetrics,
+    BrainFlowClassifiers,
+    BrainFlowModelParams,
+)
 
 load_dotenv()
 DATA_PATH = os.environ["DATA_PATH"]
@@ -93,8 +102,26 @@ class MIExtractor:
 
 
 class ConcentrationExtractor:
+    def __init__(self, sr, board_id):
+        self.sr = sr
+        self.board_id = board_id
+
     def get_concentration(self, data):
-        return randint(0, 100)
+        eeg_channels = BoardShim.get_eeg_channels(int(self.board_id))
+        data = np.squeeze(data)
+        bands = DataFilter.get_avg_band_powers(data, eeg_channels, self.sr, True)
+        feature_vector = np.concatenate((bands[0], bands[1]))
+
+        # calc concentration
+        concentration_params = BrainFlowModelParams(
+            BrainFlowMetrics.CONCENTRATION.value, BrainFlowClassifiers.KNN.value
+        )
+        concentration = MLModel(concentration_params)
+        concentration.prepare()
+        conc = int(concentration.predict(feature_vector) * 100)
+        concentration.release()
+
+        return conc
 
 
 if __name__ == "__main__":

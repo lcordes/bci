@@ -8,21 +8,25 @@ from classification.classifiers import Classifier
 
 
 class BCIServer:
-    def __init__(self, sim, concentration, model_name):
+    def __init__(self, sim, concentration, silent, model_name):
         self.sim = sim
+        self.silent = silent
         self.models_path = "data/models/"  # add path from parent directory in front
         self.concentration = concentration
         self.context = zmq.Context()
         self.socket = self.context.socket(zmq.REP)
         self.socket.bind("tcp://*:5555")
         print("BCI server started")
+        self.data_handler = OpenBCIHandler(sim=self.sim)
+        self.sampling_rate = self.data_handler.get_sampling_rate()
+        self.board_id = self.data_handler.get_board_id()
 
         if self.concentration:
-            self.data_handler = OpenBCIHandler(sim=self.sim)
-            self.extractor = ConcentrationExtractor()
+            self.extractor = ConcentrationExtractor(
+                sr=self.sampling_rate, board_id=self.board_id
+            )
         else:
-            self.data_handler = OpenBCIHandler(sim=self.sim)
-            self.sampling_rate = self.data_handler.get_sampling_rate()
+
             self.extractor = MIExtractor(type="CSP")
             self.extractor.load_model(model_name)
             self.predictor = Classifier(type="LDA")
@@ -33,20 +37,22 @@ class BCIServer:
 
     def run_mi(self):
         raw = self.data_handler.get_current_data()
-        print("Raw shape:", raw.shape)
         features = self.extractor.transform(raw)
-        print("Features shape:", features.shape)
         prediction = int(self.predictor.predict(features))
-        print(f"Prediction: {prediction}")
         command = self.commands[str(prediction)]
         self.socket.send(command)
-        print(f"Sent command: {command}")
+        if not self.silent:
+            print("Raw shape:", raw.shape)
+            print("Features shape:", features.shape)
+            print(f"Prediction: {prediction}")
+            print(f"Sent command: {command}")
 
     def run_concentration(self):
-        raw = self.data_handler.get_current_data()
+        raw = self.data_handler.get_concentration_data()
         concentration = str(self.extractor.get_concentration(raw)).encode()
         self.socket.send(concentration)
-        print(f"Sent concentration: {concentration}")
+        if not self.silent:
+            print(f"Sent concentration: {concentration}")
 
     def run(self):
         while self.running:
@@ -61,7 +67,8 @@ class BCIServer:
             else:
                 self.run_mi()
             delta = np.round(time() - start, 3)
-            print(f"Processing time: {delta} seconds\n")
+            if not self.silent:
+                print(f"Processing time: {delta} seconds\n")
 
 
 if __name__ == "__main__":
@@ -86,9 +93,18 @@ if __name__ == "__main__":
         const="model1",
         help="Specifies the Extractor and Classifier model name.",
     )
+    parser.add_argument(
+        "--silent",
+        help="Do not print message info to the console",
+        action="store_true",
+        default=False,
+    )
     args = parser.parse_args()
 
     server = BCIServer(
-        sim=args.sim, concentration=args.concentration, model_name=args.model
+        sim=args.sim,
+        concentration=args.concentration,
+        silent=args.silent,
+        model_name=args.model,
     )
     server.run()

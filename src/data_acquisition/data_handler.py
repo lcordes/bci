@@ -34,25 +34,34 @@ class OpenBCIHandler:
         except:
             self.status = "no_connection"
 
+        self.sr = self.board.get_sampling_rate(self.board_id)
+
     def get_current_data(self, n_samples=None):
         if not n_samples:
-            sr = self.get_sampling_rate()
             marker_channel = 31
             sample_channel = 0
-            n_samples = int(sr * (TRIAL_OFFSET + TRIAL_LENGTH))
+            n_samples = int(self.sr * (TRIAL_OFFSET + TRIAL_LENGTH))
         data = self.board.get_current_board_data(n_samples)
         data = np.delete(data, [sample_channel, marker_channel], axis=0)
-        offset_end = int(TRIAL_OFFSET * sr)
+        offset_end = int(TRIAL_OFFSET * self.sr)
         data = data[:, offset_end:]
 
         data = np.expand_dims(data, axis=0)
         return data
+
+    def get_concentration_data(self, n_samples=None):
+        if not n_samples:
+            n_samples = int(self.sr * 5)
+        return self.board.get_current_board_data(n_samples)
 
     def insert_marker(self, marker):
         self.board.insert_marker(marker)
 
     def get_sampling_rate(self):
         return self.board.get_sampling_rate(self.board_id)
+
+    def get_board_id(self):
+        return self.board_id
 
     def save_and_exit(self, session_type="Live"):
         session_time = datetime.now().strftime("%d-%m-%Y_%H:%M:%S")
