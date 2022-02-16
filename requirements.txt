@@ -1,5 +1,6 @@
 brainflow
 pygame
+python-dotenv
 pyzmq
 numpy
 pyqtgraph

@@ -41,9 +41,7 @@ def prepare_trials(
     marker_data = trials[marker_channel, :].flatten()
     marker_indices = np.argwhere(marker_data).flatten()
     marker_labels = marker_data[marker_indices]
-    assert (
-        np.unique(marker_labels) == np.array([1.0, 2.0, 3.0])
-    ).all(), "Labels are incorrect."
+    assert set(marker_labels).issubset({1.0, 2.0, 3.0}), "Labels are incorrect."
 
     # Remove non-voltage channels
     trials_cleaned = np.delete(trials, [sample_channel, marker_channel], axis=0)
