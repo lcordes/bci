@@ -4,7 +4,7 @@ from pathlib import Path
 
 parent_dir = str(Path(__file__).parents[1].resolve())
 sys.path.append(parent_dir)
-from feature_extraction.extractors import Extractor, prepare_trials
+from feature_extraction.extractors import MIExtractor, prepare_trials
 from classifiers import Classifier
 
 
@@ -25,7 +25,7 @@ if __name__ == "__main__":
     X, y = prepare_trials(recording_name)
 
     # Train and save the extractor
-    extractor = Extractor(type="CSP")
+    extractor = MIExtractor(type="CSP")
     X_transformed = extractor.fit_transform(X, y)
     extractor.save_model(model_name)
     print("Extractor trained and saved successfully.")
