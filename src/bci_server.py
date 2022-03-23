@@ -2,9 +2,13 @@ import argparse
 import zmq
 import numpy as np
 from time import time, sleep
+from apps.concentration import TIMESTEP
+from communication.pub_sub import Publisher
 from data_acquisition.data_handler import OpenBCIHandler
 from feature_extraction.extractors import MIExtractor, ConcentrationExtractor
 from classification.classifiers import Classifier
+
+TIMESTEP = 0.1
 
 
 class BCIServer:
@@ -13,10 +17,6 @@ class BCIServer:
         self.silent = silent
         self.models_path = "data/models/"  # add path from parent directory in front
         self.concentration = concentration
-        self.context = zmq.Context()
-        self.socket = self.context.socket(zmq.REP)
-        self.socket.bind("tcp://*:5555")
-        print("BCI server started")
         self.data_handler = OpenBCIHandler(sim=self.sim)
         self.sampling_rate = self.data_handler.get_sampling_rate()
         self.board_id = self.data_handler.get_board_id()
@@ -25,6 +25,8 @@ class BCIServer:
             self.extractor = ConcentrationExtractor(
                 sr=self.sampling_rate, board_id=self.board_id
             )
+            self.publisher = Publisher("Concentration")
+
         else:
 
             self.extractor = MIExtractor(type="CSP")
@@ -32,40 +34,44 @@ class BCIServer:
             self.predictor = Classifier(type="LDA")
             self.predictor.load_model(model_name)
             self.commands = {"1": b"left", "2": b"right", "3": b"up"}
+            self.publisher = Publisher("MI")
 
         self.running = True
+        print("BCI server started")
 
-    def run_mi(self):
+    def get_mi(self):
         raw = self.data_handler.get_current_data()
         features = self.extractor.transform(raw)
         prediction = int(self.predictor.predict(features))
-        command = self.commands[str(prediction)]
-        self.socket.send(command)
         if not self.silent:
             print("Raw shape:", raw.shape)
             print("Features shape:", features.shape)
             print(f"Prediction: {prediction}")
-            print(f"Sent command: {command}")
+        return prediction
 
-    def run_concentration(self):
+    def get_concentration(self):
         raw = self.data_handler.get_concentration_data()
-        concentration = str(self.extractor.get_concentration(raw)).encode()
-        self.socket.send(concentration)
+        concentration = self.extractor.get_concentration(raw)
         if not self.silent:
             print(f"Sent concentration: {concentration}")
+        return concentration
 
     def run(self):
         while self.running:
+            sleep(TIMESTEP)
             if self.data_handler.status == "no_connection":
                 print("\n", "No headset connection, use '--sim' for simulated data")
                 break
 
-            _ = self.socket.recv()
             start = time()
             if self.concentration:
-                self.run_concentration()
+                event = self.get_concentration()
             else:
-                self.run_mi()
+                event = self.get_mi()
+
+            if not event == "No event":
+                self.publisher.send_event(event)
+
             delta = np.round(time() - start, 3)
             if not self.silent:
                 print(f"Processing time: {delta} seconds\n")

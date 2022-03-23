@@ -2,15 +2,22 @@ import argparse
 import pygame
 from pygame import Rect
 from random import randrange
-from bci_client import BCIClient
 
-TIMESTEP = 1000
+
+import sys
+from pathlib import Path
+
+parent_dir = str(Path(__file__).parents[1].resolve())
+sys.path.append(parent_dir)
+from communication.pub_sub import Subscriber
+
+TIMESTEP = 30
 WINDOW_SIZE = 600
 
 
 class Sandbox:
     def __init__(self, timestep, w_size):
-        self.client = BCIClient()
+        self.subscriber = Subscriber("MI")
         pygame.init()
         self.timestep = timestep
         self.w_size = w_size
@@ -23,15 +30,15 @@ class Sandbox:
         )
         self.player = self.start_pos
 
-    def get_new_pos(self, command):
+    def get_new_pos(self, event):
 
-        if command == "left":
+        if event == 1:
             new_pos = self.player.move(-self.rect_size, 0)
 
-        if command == "right":
+        if event == 2:
             new_pos = self.player.move(self.rect_size, 0)
 
-        if command == "up":
+        if event == 3:
             new_pos = self.player.move(0, -self.rect_size)
         return new_pos
 
@@ -59,12 +66,12 @@ class Sandbox:
     def run(self):
         while True:
             pygame.time.delay(self.timestep)
+            event = self.subscriber.get_event()
 
-            self.client.request_command()
-            command = self.client.get_command()
-            new_pos = self.get_new_pos(command)
-            self.player = self.check_new_pos(new_pos)
-            self.redraw_screen()
+            if event in ["1", "2", "3"]:
+                new_pos = self.get_new_pos(int(event))
+                self.player = self.check_new_pos(new_pos)
+                self.redraw_screen()
 
             if self.game_over():
                 break

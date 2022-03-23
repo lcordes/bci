@@ -1,7 +1,11 @@
 import pygame
 from pygame import Rect
-from bci_client import BCIClient
+import sys
+from pathlib import Path
 
+parent_dir = str(Path(__file__).parents[1].resolve())
+sys.path.append(parent_dir)
+from communication.pub_sub import Subscriber
 
 WINDOW_SIZE = 600
 TIMESTEP = 100
@@ -15,7 +19,7 @@ BACKGROUND = (255, 255, 102)
 
 class Bar:
     def __init__(self, timestep, w_size):
-        self.client = BCIClient()
+        self.subscriber = Subscriber("Concentration")
         pygame.init()
         self.timestep = timestep
         self.w_size = w_size
@@ -53,8 +57,8 @@ class Bar:
     def run(self):
         while True:
 
-            self.client.request_command()
-            self.concentration = int(self.client.get_command())
+            event = self.subscriber.get_event()
+            self.concentration = event
             self.redraw_screen()
 
             if self.end_session():
