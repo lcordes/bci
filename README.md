@@ -31,11 +31,6 @@ Alternatively, run the server without connecting to a headset using simulated EE
 
 Then start one of the following applications in a seperate terminal.
 
-### Assessing model accuracy using the experiment interface
-Use the experiment interface to get feedback whether your motor imagery is classified correctly by the current model:
-
-    python3 src/apps/experiment.py
-
 ### Using BCI predictions for movement control in a 2D game
 Start the game environment with obstacles:
 
@@ -53,3 +48,13 @@ To get a visual measure of how concentrated the current user is start the BCI se
 Then start the interface in a separate terminal:
 
     python3 src/apps/concentration.py
+
+### Assessing model accuracy using the experiment interface
+
+Start the BCI server in evaluation mode:
+
+    python3 src/bci_server.py --eval
+
+Use the experiment interface to get feedback whether your motor imagery is classified correctly by the current model:
+
+    python3 src/apps/experiment.py
