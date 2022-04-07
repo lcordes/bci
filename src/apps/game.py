@@ -11,7 +11,7 @@ parent_dir = str(Path(__file__).parents[1].resolve())
 sys.path.append(parent_dir)
 from communication.pub_sub import Subscriber
 
-TIMESTEP = 30
+TIMESTEP = 30  # in ms
 WINDOW_SIZE = 600
 
 

@@ -1,9 +1,10 @@
 from datetime import datetime
 import argparse
+from cv2 import clipLine
 import pygame
 import pandas as pd
+import numpy as np
 from random import choice
-from bci_client import BCIClient
 
 import sys
 from pathlib import Path
@@ -11,6 +12,7 @@ from pathlib import Path
 parent_dir = str(Path(__file__).parents[1].resolve())
 sys.path.append(parent_dir)
 from data_acquisition.data_handler import OpenBCIHandler
+from communication.client_server import Client
 
 WINDOW_SIZE = 600
 BLACK = (0, 0, 0)
@@ -19,7 +21,7 @@ RED = (255, 0, 0)
 WHITE = (255, 255, 255)
 SHAPE_RADIUS = 15
 PYGAME_KEYS = {"space": pygame.K_SPACE, "esc": pygame.K_ESCAPE}
-MARKERS = {"left": 1.0, "right": 2.0, "up": 3.0}
+MARKERS = ["left", "right", "up"]
 
 
 class ExperimentGUI:
@@ -126,13 +128,13 @@ class DataGenerator(ExperimentGUI):
                 pygame.time.delay(1500)
 
             elif self.state == "arrow":
-                self.current_marker = choice(list(MARKERS.keys()))
+                self.current_marker = choice(MARKERS)
                 self.draw_arrow()
                 self.state = "fixdot"
                 pygame.time.delay(2000)
 
             elif self.state == "imagine":
-                self.data_handler.insert_marker(MARKERS[self.current_marker])
+                self.data_handler.insert_marker(MARKERS.index(self.current_marker) + 1)
                 self.display_text("", BLACK)
                 self.state = "trial_end"
                 pygame.time.delay(3000)
@@ -158,7 +160,7 @@ class Evaluator(ExperimentGUI):
     def __init__(self, w_size, keep_log):
         super().__init__(w_size, keep_log)
         pygame.display.set_caption("Evaluator")
-        self.client = BCIClient()
+        self.client = Client()
 
     def save_and_exit(self):
         data = pd.DataFrame.from_dict(self.log)
@@ -202,12 +204,16 @@ class Evaluator(ExperimentGUI):
                 pygame.time.delay(3000)
 
             elif self.state == "feedback":
+
                 self.client.request_command()
-                command = self.client.get_command()
+                prob_string = self.client.get_command()
+                probs = prob_string.split(";")
+                probs = [float(prob) for prob in probs]
+                command = MARKERS[np.argmax(probs)]
                 if command == self.current_marker:
-                    self.display_text("Correct Classification", GREEN)
+                    self.display_text(f"Correct ({prob_string}))", GREEN)
                 else:
-                    self.display_text(f"Incorrect Classification", RED)
+                    self.display_text(f"Incorrect ({prob_string})", RED)
 
                 self.state = "arrow"
                 data = {

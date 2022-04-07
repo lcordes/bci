@@ -6,15 +6,14 @@ PORT = "5001"
 
 
 class Publisher:
-    def __init__(self, topic):
-        self.topic = topic
+    def __init__(self):
         context = zmq.Context()
         self.socket = context.socket(zmq.PUB)
         self.socket.bind(f"tcp://{HOST}:{PORT}")
         time.sleep(1)  # Check if this is needed (for bind to execute)
 
-    def send_event(self, event):
-        self.socket.send_string(f"{self.topic} {event}")
+    def send_event(self, event, topic):
+        self.socket.send_string(f"{topic} {event}")
 
 
 class Subscriber:

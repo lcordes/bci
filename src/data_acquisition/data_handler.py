@@ -38,8 +38,10 @@ class OpenBCIHandler:
 
     def get_current_data(self, n_samples=None):
         if not n_samples:
-            marker_channel = 31
+
+            marker_channel = self.board.get_marker_channel(self.board_id)
             sample_channel = 0
+            # sample_channel = self.board.get_timestamp_channel(self.board_id)
             n_samples = int(self.sr * (TRIAL_OFFSET + TRIAL_LENGTH))
         data = self.board.get_current_board_data(n_samples)
         data = np.delete(data, [sample_channel, marker_channel], axis=0)

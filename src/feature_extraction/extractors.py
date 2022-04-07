@@ -23,7 +23,6 @@ TRIAL_OFFSET = float(os.environ["TRIAL_OFFSET"])
 def prepare_trials(
     recording_name,
     sampling_rate=250,
-    marker_channel=31,
     sample_channel=0,
 ):
     """
@@ -38,6 +37,11 @@ def prepare_trials(
     ), "Data shape incorrect, there are more channels than samples."
 
     # Extract marker info
+    marker_channel = trials.shape[0] - 1
+    assert marker_channel in [
+        31,
+        17,
+    ], "Check if marker channel is correct in prepare_trials"
     marker_data = trials[marker_channel, :].flatten()
     marker_indices = np.argwhere(marker_data).flatten()
     marker_labels = marker_data[marker_indices]
