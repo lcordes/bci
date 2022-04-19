@@ -14,7 +14,7 @@ sys.path.append(parent_dir)
 from data_acquisition.data_handler import OpenBCIHandler
 from communication.client_server import Client
 
-WINDOW_SIZE = 600
+WINDOW_SIZE = 800
 BLACK = (0, 0, 0)
 GREEN = (0, 255, 0)
 RED = (255, 0, 0)
@@ -30,6 +30,7 @@ class ExperimentGUI:
         self.keep_log = keep_log
         self.w_size = w_size
         self.window = pygame.display.set_mode((self.w_size, self.w_size))
+        self.center = (self.w_size // 2, self.w_size // 2)
         self.state = "start"
         self.font = pygame.font.Font("freesansbold.ttf", 26)
         self.trial = 1
@@ -40,13 +41,34 @@ class ExperimentGUI:
         self.window.fill(WHITE)
         pygame.display.update()
 
-    def display_text(self, string, colour):
+    def display_text(self, string, colour, loc=None, redraw=True):
+        loc = self.center if not loc else loc
         text = self.font.render(string, True, colour)
         textRect = text.get_rect()
-        textRect.center = (self.w_size // 2, self.w_size // 2)
-        self.window.fill(WHITE)
+        textRect.center = loc
+        if redraw:
+            self.window.fill(WHITE)
         self.window.blit(text, textRect)
         pygame.display.update()
+
+    def display_feedback(self, probs):
+        # Determine feedback color per marker
+        cols = ["BLACK", "BLACK", "BLACK"]
+        cols[MARKERS.index(self.current_marker)] = "GREEN"
+        if not self.current_marker == self.command:
+            cols[MARKERS.index(self.command)] = "RED"
+
+        # Get location per marker
+        offset = self.w_size // 10
+        locs = [
+            ((self.w_size // 2) - offset, self.w_size // 2),
+            ((self.w_size // 2) + offset, self.w_size // 2),
+            (self.w_size // 2, (self.w_size // 2) - offset),
+        ]
+
+        for prob, col, loc in zip(probs, cols, locs):
+            self.display_text(str(prob), col, loc, redraw=False)
+            print(prob, col, loc)
 
     def draw_arrow(self):
         m = self.w_size // 2
@@ -209,22 +231,19 @@ class Evaluator(ExperimentGUI):
                 prob_string = self.client.get_command()
                 probs = prob_string.split(";")
                 probs = [float(prob) for prob in probs]
-                command = MARKERS[np.argmax(probs)]
-                if command == self.current_marker:
-                    self.display_text(f"Correct ({prob_string}))", GREEN)
-                else:
-                    self.display_text(f"Incorrect ({prob_string})", RED)
-
+                self.command = MARKERS[np.argmax(probs)]
+                self.display_feedback(probs)
                 self.state = "arrow"
+
                 data = {
                     "trial": self.trial,
                     "instruction": self.current_marker,
-                    "prediction": command,
+                    "prediction": self.command,
                 }
                 print(data)
                 self.log.append(data)
                 self.trial += 1
-                pygame.time.delay(2000)
+                pygame.time.delay(3000)
 
             self.check_events()
 
