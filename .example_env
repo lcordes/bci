@@ -1,5 +1,9 @@
-## Headset specific variables
-SERIAL_PORT=myserialport 
+# Paths
+DATA_PATH=data
 
-# Set the brainflow board ID corresponding to your amplifier board (see https://brainflow.readthedocs.io/en/stable/SupportedBoards.html)
-BOARD_ID=2 
+# Experiment setup
+TRIAL_LENGTH = 2
+TRIAL_OFFSET = 0.5
+
+## Headset specific variables
+SERIAL_PORT=/dev/ttyUSB0 # serial port path on linux-based systems

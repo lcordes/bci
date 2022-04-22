@@ -12,13 +12,15 @@ TIMESTEP = 2  # in s
 
 
 class BCIServer:
-    def __init__(self, sim, concentration, silent, eval, model_name):
+    def __init__(self, sim, cython, concentration, silent, eval, model_name):
         self.sim = sim
+        self.cython = cython
         self.silent = silent
         self.eval = eval
         self.models_path = "data/models/"  # add path from parent directory in front
         self.concentration = concentration
-        self.data_handler = OpenBCIHandler(sim=self.sim)
+        board_type = "synthetic" if self.sim else "cython" if self.cython else "daisy"
+        self.data_handler = OpenBCIHandler(board_type=board_type)
         self.sampling_rate = self.data_handler.get_sampling_rate()
         self.board_id = self.data_handler.get_board_id()
         if self.eval:
@@ -45,6 +47,8 @@ class BCIServer:
         raw = self.data_handler.get_current_data()
         features = self.extractor.transform(raw)
         probs = self.predictor.predict_probs(features)
+        probs = [np.round(prob, 3) for prob in probs]
+
         prediction = int(self.predictor.predict(features))
         if not self.silent:
             print("Raw shape:", raw.shape)
@@ -99,6 +103,12 @@ if __name__ == "__main__":
         default=False,
     )
     parser.add_argument(
+        "--cython",
+        help="use 8 channels only",
+        action="store_true",
+        default=False,
+    )
+    parser.add_argument(
         "--eval",
         help="Use server for experiment evaluation",
         action="store_true",
@@ -110,7 +120,6 @@ if __name__ == "__main__":
         action="store_true",
         default=False,
     )
-
     parser.add_argument(
         "--model",
         nargs="?",
@@ -128,6 +137,7 @@ if __name__ == "__main__":
 
     server = BCIServer(
         sim=args.sim,
+        cython=args.cython,
         concentration=args.concentration,
         silent=args.silent,
         eval=args.eval,

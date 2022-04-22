@@ -38,6 +38,6 @@ class Classifier:
 
     def predict_probs(self, X):
         probs = self.model.predict_proba(X)[0]
-        probs = [np.round(prob, 3) for prob in probs]
+        # probs = [np.round(prob, 3) for prob in probs]
         assert len(probs) == 3, "Class probabilities are not equal to 3"
         return probs

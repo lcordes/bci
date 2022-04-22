@@ -16,55 +16,6 @@ from brainflow.ml_model import (
 
 load_dotenv()
 DATA_PATH = os.environ["DATA_PATH"]
-TRIAL_LENGTH = float(os.environ["TRIAL_LENGTH"])
-TRIAL_OFFSET = float(os.environ["TRIAL_OFFSET"])
-
-
-def prepare_trials(
-    recording_name,
-    sampling_rate=250,
-    sample_channel=0,
-):
-    """
-    Loads a training session recording of shape (channels x samples).
-    Returns a training data set of shape (trials x channels x samples)
-    and a corresponding set of labels with shape (trials).
-    """
-    path = f"{DATA_PATH}/recordings/{recording_name}.npy"
-    trials = np.load(path)
-    assert (
-        trials.shape[0] < trials.shape[1]
-    ), "Data shape incorrect, there are more channels than samples."
-
-    # Extract marker info
-    marker_channel = trials.shape[0] - 1
-    assert marker_channel in [
-        31,
-        17,
-    ], "Check if marker channel is correct in prepare_trials"
-    marker_data = trials[marker_channel, :].flatten()
-    marker_indices = np.argwhere(marker_data).flatten()
-    marker_labels = marker_data[marker_indices]
-    assert set(marker_labels).issubset({1.0, 2.0, 3.0}), "Labels are incorrect."
-
-    # Remove non-voltage channels
-    trials_cleaned = np.delete(trials, [sample_channel, marker_channel], axis=0)
-    # Extract trials
-    onsets = (marker_indices + sampling_rate * TRIAL_OFFSET).astype(int)
-    samples_per_trial = int((sampling_rate * TRIAL_LENGTH))
-    ends = onsets + samples_per_trial
-
-    train_data = np.zeros(
-        (len(marker_labels), trials_cleaned.shape[0], samples_per_trial)
-    )
-
-    for i in range(len(marker_labels)):
-        train_data[i, :, :] = trials_cleaned[:, onsets[i] : ends[i]]
-
-    assert (
-        train_data.shape[2] == sampling_rate * TRIAL_LENGTH
-    ), "Number of samples is incorrect"
-    return train_data, marker_labels
 
 
 class MIExtractor:
@@ -124,8 +75,3 @@ class ConcentrationExtractor:
         concentration.release()
 
         return conc
-
-
-if __name__ == "__main__":
-    X, y = prepare_trials("data/recordings/train_example.npy")
-    print(X.shape, y.shape)

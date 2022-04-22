@@ -1,6 +1,5 @@
 from datetime import datetime
 import argparse
-from cv2 import clipLine
 import pygame
 import pandas as pd
 import numpy as np
@@ -113,10 +112,10 @@ class ExperimentGUI:
 
 
 class DataGenerator(ExperimentGUI):
-    def __init__(self, w_size, keep_log, sim):
+    def __init__(self, w_size, keep_log, board_type):
         super().__init__(w_size, keep_log)
         pygame.display.set_caption("Evaluator")
-        self.data_handler = OpenBCIHandler(sim=sim)
+        self.data_handler = OpenBCIHandler(board_type=board_type)
         if self.data_handler.status == "no_connection":
             print("\n", "No headset connection, use '--train_sim' for simulated data")
             self.running = False
@@ -232,6 +231,7 @@ class Evaluator(ExperimentGUI):
                 probs = prob_string.split(";")
                 probs = [float(prob) for prob in probs]
                 self.command = MARKERS[np.argmax(probs)]
+                probs = [np.round(prob, 2) for prob in probs]
                 self.display_feedback(probs)
                 self.state = "arrow"
 
@@ -254,27 +254,24 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--log",
-        help="write session data to csv",
+        help="write trial data to csv",
         action="store_true",
         default=False,
     )
     parser.add_argument(
         "--train",
-        help="generate training data for model",
-        action="store_true",
-        default=False,
-    )
-    parser.add_argument(
-        "--train_sim",
-        help="generate simulated training data for model",
-        action="store_true",
-        default=False,
+        dest="board_type",
+        choices=["synthetic", "cython", "daisy"],
+        const="daisy",
+        nargs="?",
+        type=str,
+        help="Generate training data for model. Optionally specify 'cython' or 'synthetic' as board type.",
     )
     args = parser.parse_args()
 
     gui = (
-        DataGenerator(WINDOW_SIZE, keep_log=args.log, sim=args.train_sim)
-        if args.train or args.train_sim
+        DataGenerator(WINDOW_SIZE, keep_log=args.log, board_type=args.board_type)
+        if args.board_type
         else Evaluator(WINDOW_SIZE, keep_log=args.log)
     )
     gui.run()
