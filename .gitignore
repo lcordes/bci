@@ -6,6 +6,7 @@ competition
 *.npy
 *test.py
 *.pkl
+*.png
 
 
 
