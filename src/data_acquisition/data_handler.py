@@ -18,8 +18,9 @@ BoardShim.enable_dev_board_logger()
 
 
 class OpenBCIHandler:
-    def __init__(self, board_type):
+    def __init__(self, board_type, n_channels=16):
         self.board_type = board_type
+        self.n_channels = n_channels
         params = BrainFlowInputParams()
         if board_type == "synthetic":
             self.board_id = BoardIds.SYNTHETIC_BOARD.value
@@ -45,10 +46,7 @@ class OpenBCIHandler:
 
     def select_channels(self, data):
         # Make sure these channels are indeed the 8 cython and 8 daisy channels!!
-        if self.board_type == "cython":
-            return data[:8, :]
-        else:
-            return data[:16, :]
+        return data[: self.n_channels, :]
 
     def get_current_data(self, n_samples=None):
 

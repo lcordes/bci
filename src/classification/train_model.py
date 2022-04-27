@@ -95,11 +95,14 @@ if __name__ == "__main__":
 
     # Prepare the trial data
     X, y = prepare_trials(recording_name, cython=args.cython)
+    class_frequencies = np.asarray(np.unique(y, return_counts=True))
+    print("Class examples:\n", class_frequencies)
 
     # Train and save the extractor
     extractor = MIExtractor(type="CSP")
     X_transformed = extractor.fit_transform(X, y)
     extractor.save_model(model_name)
+    extractor.visualize_csp(model_name)
     print("Extractor trained and saved successfully.")
 
     # Train and save the extractor

@@ -12,21 +12,12 @@ TIMESTEP = 2  # in s
 
 
 class BCIServer:
-    def __init__(self, sim, cython, concentration, silent, eval, model_name):
+    def __init__(self, sim, concentration, silent, eval, model_name):
         self.sim = sim
-        self.cython = cython
         self.silent = silent
         self.eval = eval
         self.models_path = "data/models/"  # add path from parent directory in front
         self.concentration = concentration
-        board_type = "synthetic" if self.sim else "cython" if self.cython else "daisy"
-        self.data_handler = OpenBCIHandler(board_type=board_type)
-        self.sampling_rate = self.data_handler.get_sampling_rate()
-        self.board_id = self.data_handler.get_board_id()
-        if self.eval:
-            self.server = Server()
-        else:
-            self.publisher = Publisher()
 
         if self.concentration:
             self.extractor = ConcentrationExtractor(
@@ -36,11 +27,26 @@ class BCIServer:
 
             self.extractor = MIExtractor(type="CSP")
             self.extractor.load_model(model_name)
+            self.n_channels = self.extractor.get_n_channels()
             self.predictor = Classifier(type="LDA")
             self.predictor.load_model(model_name)
             self.commands = {"1": b"left", "2": b"right", "3": b"up"}
 
+        board_type = "synthetic" if self.sim else "daisy"
+
+        self.data_handler = OpenBCIHandler(
+            board_type=board_type, n_channels=self.n_channels
+        )
+        self.sampling_rate = self.data_handler.get_sampling_rate()
+        self.board_id = self.data_handler.get_board_id()
+
+        if self.eval:
+            self.server = Server()
+        else:
+            self.publisher = Publisher()
+
         self.running = True
+
         print("BCI server started")
 
     def get_mi(self):
@@ -103,12 +109,6 @@ if __name__ == "__main__":
         default=False,
     )
     parser.add_argument(
-        "--cython",
-        help="use 8 channels only",
-        action="store_true",
-        default=False,
-    )
-    parser.add_argument(
         "--eval",
         help="Use server for experiment evaluation",
         action="store_true",
@@ -137,7 +137,6 @@ if __name__ == "__main__":
 
     server = BCIServer(
         sim=args.sim,
-        cython=args.cython,
         concentration=args.concentration,
         silent=args.silent,
         eval=args.eval,

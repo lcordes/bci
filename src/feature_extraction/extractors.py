@@ -1,8 +1,11 @@
-from mne.decoding import CSP
 import joblib
 import numpy as np
 import os
 from dotenv import load_dotenv
+
+from mne import create_info
+from mne.decoding import CSP
+from matplotlib import pyplot as plt
 
 from brainflow.board_shim import BoardShim
 from brainflow.data_filter import DataFilter
@@ -22,7 +25,7 @@ class MIExtractor:
     def __init__(self, type="CSP", space=None):
         self.type = type
         if type == "CSP":
-            self.model = CSP(n_components=30)
+            self.model = CSP(n_components=4)
             if space:
                 self.model.set_params(
                     transform_into=space
@@ -39,6 +42,7 @@ class MIExtractor:
 
     def save_model(self, model_name):
         if self.model:
+            print((self.model.n_channels))
             path = f"{DATA_PATH}/models/{self.type}/{model_name}.pkl"
             joblib.dump(self.model, path)
         else:
@@ -46,12 +50,40 @@ class MIExtractor:
 
     def fit(self, X, y):
         self.model.fit(X, y)
+        self.model.n_channels = X.shape[1]
+        assert self.model.n_channels in [
+            8,
+            16,
+            30,
+        ], "Extractor got invalid channel size"
 
     def fit_transform(self, X, y):
-        return self.model.fit_transform(X, y)
+        transform = self.model.fit_transform(X, y)
+        self.model.n_channels = X.shape[1]
+        assert self.model.n_channels in [
+            8,
+            16,
+            30,
+        ], "Extractor got invalid channel size"
+        return transform
 
     def transform(self, X):
         return self.model.transform(X)
+
+    def get_n_channels(self):
+        if not self.model:
+            print("Model not yrtloaded")
+            return None
+        else:
+            return self.model.n_channels
+
+    def visualize_csp(self, model_name):
+        channels = ["CP1", "C3", "FC1", "Cz", "FC2", "C4", "CP2", "Fpz"]
+        info = create_info(ch_names=channels, sfreq=125, ch_types="eeg")
+        info.set_montage("standard_1020")
+        self.model.plot_patterns(info)
+        path = f"{DATA_PATH}/plots/csp_patters_{model_name}.png"
+        plt.savefig(path)
 
 
 class ConcentrationExtractor:
