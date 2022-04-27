@@ -3,7 +3,7 @@ import argparse
 import pygame
 import pandas as pd
 import numpy as np
-from random import choice
+from random import choice, shuffle
 
 import sys
 from pathlib import Path
@@ -13,6 +13,7 @@ sys.path.append(parent_dir)
 from data_acquisition.data_handler import OpenBCIHandler
 from communication.client_server import Client
 
+TRIALS_PER_CLASS = 2
 WINDOW_SIZE = 800
 BLACK = (0, 0, 0)
 GREEN = (0, 255, 0)
@@ -67,7 +68,6 @@ class ExperimentGUI:
 
         for prob, col, loc in zip(probs, cols, locs):
             self.display_text(str(prob), col, loc, redraw=False)
-            print(prob, col, loc)
 
     def draw_arrow(self):
         m = self.w_size // 2
@@ -117,8 +117,13 @@ class DataGenerator(ExperimentGUI):
         pygame.display.set_caption("Evaluator")
         self.data_handler = OpenBCIHandler(board_type=board_type)
         if self.data_handler.status == "no_connection":
-            print("\n", "No headset connection, use '--train_sim' for simulated data")
+            print(
+                "\n",
+                "No headset connection, use '--train synthetic' for simulated data",
+            )
             self.running = False
+        self.trial_markers = MARKERS * TRIALS_PER_CLASS
+        shuffle(self.trial_markers)
 
     def save_and_exit(self):
         self.data_handler.save_and_exit("Training")
@@ -149,7 +154,7 @@ class DataGenerator(ExperimentGUI):
                 pygame.time.delay(1500)
 
             elif self.state == "arrow":
-                self.current_marker = choice(MARKERS)
+                self.current_marker = self.trial_markers[self.trial - 1]
                 self.draw_arrow()
                 self.state = "fixdot"
                 pygame.time.delay(2000)
@@ -170,7 +175,12 @@ class DataGenerator(ExperimentGUI):
                 print(data)
                 self.log.append(data)
                 self.trial += 1
-                pygame.time.delay(2000)
+
+                if self.trial > len(self.trial_markers):
+                    self.save_and_exit()
+                    self.running = False
+                else:
+                    pygame.time.delay(1000)
 
             self.check_events()
 
