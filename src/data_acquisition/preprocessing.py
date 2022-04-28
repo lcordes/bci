@@ -1,15 +1,16 @@
-import argparse
+# %%
+import numpy as np
+import os
+import mne
+from dotenv import load_dotenv
+from brainflow.board_shim import BoardShim
+
 import sys
 from pathlib import Path
 
 parent_dir = str(Path(__file__).parents[1].resolve())
 sys.path.append(parent_dir)
-from feature_extraction.extractors import MIExtractor
-from classifiers import Classifier
-from brainflow.board_shim import BoardShim
-import numpy as np
-import os
-from dotenv import load_dotenv
+
 
 load_dotenv()
 DATA_PATH = os.environ["DATA_PATH"]
@@ -19,7 +20,9 @@ TRIAL_OFFSET = float(os.environ["TRIAL_OFFSET"])
 TRIAL_OFFSET = float(os.environ["TRIAL_OFFSET"])
 
 
-def prepare_trials(recording_name, cython=False):
+def get_data(recording_name, cython=False):
+    # TODO: Instead of deleting additional channels add them to raw as non-data channels
+
     """
     Loads a training session recording of shape (channels x samples).
     Returns a training data set of shape (trials x channels x samples)
@@ -45,27 +48,44 @@ def prepare_trials(recording_name, cython=False):
         17,
     ], "Check if marker channel is correct in prepare_trials"
     marker_data = trials[marker_channel, :].flatten()
-    marker_indices = np.argwhere(marker_data).flatten()
-    marker_labels = marker_data[marker_indices]
-    assert set(marker_labels).issubset({1.0, 2.0, 3.0}), "Labels are incorrect."
 
     # Remove non-voltage channels
     trials_cleaned = np.delete(
         trials, [sample_channel, marker_channel, board_channel], axis=0
     )
     trials_cleaned = trials_cleaned[:8, :] if cython else trials_cleaned[:16, :]
+    return trials_cleaned, marker_data, sampling_rate
+
+
+def raw_from_npy(data, sampling__rate):
+    channels = ["CP1", "C3", "FC1", "Cz", "FC2", "C4", "CP2", "Fpz"]
+    info = mne.create_info(ch_names=channels, sfreq=sampling__rate, ch_types="eeg")
+    info.set_montage("standard_1020")
+    raw = mne.io.RawArray(data, info)
+    return raw
+
+
+def filter_raw(raw, bandpass=(0.1, 60), notch=(50), notch_width=50):
+    raw.notch_filter(notch, notch_widths=notch_width)
+    raw.filter(l_freq=bandpass[0], h_freq=bandpass[1])
+    return raw
+
+
+def create_epochs(filtered, marker_data, sampling_rate):
+    # Rewrite this to
 
     # Extract trials
     onsets = (marker_indices + sampling_rate * TRIAL_OFFSET).astype(int)
     samples_per_trial = int((sampling_rate * TRIAL_LENGTH))
     ends = onsets + samples_per_trial
 
-    train_data = np.zeros(
-        (len(marker_labels), trials_cleaned.shape[0], samples_per_trial)
-    )
+    marker_indices = np.argwhere(marker_data).flatten()
+    marker_labels = marker_data[marker_indices]
+    assert set(marker_labels).issubset({1.0, 2.0, 3.0}), "Labels are incorrect."
+    train_data = np.zeros((len(marker_labels), filtered.shape[0], samples_per_trial))
 
     for i in range(len(marker_labels)):
-        train_data[i, :, :] = trials_cleaned[:, onsets[i] : ends[i]]
+        train_data[i, :, :] = filtered[:, onsets[i] : ends[i]]
 
     assert (
         train_data.shape[2] == sampling_rate * TRIAL_LENGTH
@@ -73,40 +93,22 @@ def prepare_trials(recording_name, cython=False):
     return train_data, marker_labels
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "recording_name",
-        help="Name of the recording to train from (without extension).",
-    )
-    parser.add_argument(
-        "model_name", help="Name for saving the trained model (without extension)."
-    )
+# %%
 
-    parser.add_argument(
-        "--cython",
-        help="Train model on the 8 cython channels only.",
-        action="store_true",
-        default=False,
-    )
-    args = parser.parse_args()
-    recording_name = args.recording_name.replace(".pkl", "")
-    model_name = args.model_name.replace(".pkl", "")
+model_name = "real"
+data, markers, sampling_rate = get_data(model_name, cython=True)
+raw = raw_from_npy(data, sampling__rate=sampling_rate)
+filtered = filter_raw(raw.copy(), notch=(25, 50), notch_width=0.5)
+filtered.plot_psd()
+# %% Alternative
 
-    # Prepare the trial data
-    X, y = prepare_trials(recording_name, cython=args.cython)
-    class_frequencies = np.asarray(np.unique(y, return_counts=True))
-    print("Class examples:\n", class_frequencies)
+path = f"{DATA_PATH}/recordings/real.npy"
+trials = np.load(path)
 
-    # Train and save the extractor
-    extractor = MIExtractor(type="CSP")
-    X_transformed = extractor.fit_transform(X, y)
-    extractor.save_model(model_name)
-    extractor.visualize_csp(model_name)
-    print("Extractor trained and saved successfully.")
+raw = raw_from_npy(trials[1:9, :], sampling__rate=125)
+filtered = filter_raw(raw.copy(), notch=(25, 50), notch_width=0.5)
 
-    # Train and save the extractor
-    classifier = Classifier(type="LDA")
-    classifier.fit(X_transformed, y)
-    classifier.save_model(model_name)
-    print("Classifier trained and saved successfully.")
+# Plots
+# filtered.plot_psd()
+# raw.plot_psd_topo(fmin=8, fmax=13)
+# %%
