@@ -4,6 +4,8 @@ import mne
 from dotenv import load_dotenv
 from brainflow.board_shim import BoardShim
 import matplotlib.pyplot as plt
+
+plt.style.use("fivethirtyeight")
 from matplotlib.lines import Line2D
 
 
@@ -99,21 +101,51 @@ def plot_psd_per_label(epochs, channels, freq_window):
     fig.suptitle("Power spectral density per class")
     custom_lines = [Line2D([0], [0], color=col, lw=2) for col in label_cols]
     fig.legend(custom_lines, ["left", "right", "up"])
+    plt.show()
 
+
+def plot_log_variance(epochs, channels):
+    # Get bar data
+    epochs_subset = epochs.pick(channels)
+    dat = epochs_subset.get_data()
+    log_var = np.log(np.var(dat, axis=2))
+    labels = epochs_subset.events[:, 2]
+
+    bar_dat = np.zeros((dat.shape[1], 3))
+    for label in [1, 2, 3]:
+        bar_dat[:, label - 1] = np.mean(log_var[labels == label, :], axis=0)
+
+    # n_plots == bar_dat.shape[0]
+    fig, ax = plt.subplots(3, 3, sharey=True)
+    print(ax)
+    for idx, channel in enumerate(channels):
+        fig.axes[idx].bar(["left", "right", "up"], bar_dat[idx, :])
+        cutoff = np.min(bar_dat) - 0.2
+        fig.axes[idx].set_ylim(bottom=cutoff)
+        fig.axes[idx].set_title(channel)
+
+    fig.set_tight_layout(True)
+    fig.suptitle("Log variance per class")
     plt.show()
 
 
 if __name__ == "__main__":
-    model_name = "real"
-    data, marker_data, sampling_rate = get_data(model_name, cython=True)
+    recording_name = "real"
+    data, marker_data, sampling_rate = get_data(recording_name, cython=True)
     raw = raw_from_npy(data, sampling__rate=sampling_rate)
-    filtered = filter_raw(raw.copy(), bandpass=(1, 60), notch=(25, 50), notch_width=0.5)
+    filtered = filter_raw(raw.copy(), bandpass=(8, 13), notch=(25, 50), notch_width=0.5)
     epochs = epochs_from_raw(filtered, marker_data, sampling_rate=sampling_rate)
 
-    # Look at filtering effect
-    # raw.plot_psd()
-    # filtered.plot_psd()
+    plot = True
+    if plot:
+        # Look at filtering effect
+        raw.plot_psd()
+        filtered.plot_psd()
 
-    # Visualize power spectrum between labels
-    channels = ["C3", "Cz", "C4"]
-    plot_psd_per_label(epochs, channels, freq_window=(8, 13))
+        # Visualize power spectrum between labels
+        channels = ["C3", "Cz", "C4"]
+        plot_psd_per_label(epochs, channels, freq_window=(8, 13))
+
+        # Visualize log variance between labels
+        channels = ["CP1", "C3", "FC1", "Cz", "FC2", "C4", "CP2", "Fpz"]
+        plot_log_variance(epochs, channels)
