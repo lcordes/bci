@@ -1,15 +1,10 @@
-# %%
 import numpy as np
 import os
 import mne
 from dotenv import load_dotenv
 from brainflow.board_shim import BoardShim
-
-import sys
-from pathlib import Path
-
-parent_dir = str(Path(__file__).parents[1].resolve())
-sys.path.append(parent_dir)
+import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 
 
 load_dotenv()
@@ -71,44 +66,54 @@ def filter_raw(raw, bandpass=(0.1, 60), notch=(50), notch_width=50):
     return raw
 
 
-def create_epochs(filtered, marker_data, sampling_rate):
-    # Rewrite this to
-
-    # Extract trials
-    onsets = (marker_indices + sampling_rate * TRIAL_OFFSET).astype(int)
-    samples_per_trial = int((sampling_rate * TRIAL_LENGTH))
-    ends = onsets + samples_per_trial
-
+def epochs_from_raw(raw, marker_data, sampling_rate):
     marker_indices = np.argwhere(marker_data).flatten()
-    marker_labels = marker_data[marker_indices]
-    assert set(marker_labels).issubset({1.0, 2.0, 3.0}), "Labels are incorrect."
-    train_data = np.zeros((len(marker_labels), filtered.shape[0], samples_per_trial))
+    marker_labels = marker_data[marker_indices].astype(int)
+    onsets = (marker_indices + sampling_rate * TRIAL_OFFSET).astype(int)
 
-    for i in range(len(marker_labels)):
-        train_data[i, :, :] = filtered[:, onsets[i] : ends[i]]
-
-    assert (
-        train_data.shape[2] == sampling_rate * TRIAL_LENGTH
-    ), "Number of samples is incorrect"
-    return train_data, marker_labels
+    event_arr = np.column_stack(
+        (onsets, np.zeros(len(marker_labels), dtype=int), marker_labels)
+    )
+    print(event_arr[:5, :])
+    epochs = mne.Epochs(raw, event_arr, tmin=0, tmax=2, baseline=None, preload=True)
+    return epochs
 
 
-# %%
+def plot_psd_per_label(epochs, channels, freq_window):
+    fig, ax = plt.subplots(len(channels))
+    label_cols = ["red", "green", "blue"]
+    for channel_idx, channel in enumerate(channels):
+        for label_idx, label in enumerate(["1", "2", "3"]):
+            epochs[label].plot_psd(
+                ax=ax[channel_idx],
+                color=label_cols[label_idx],
+                picks=[channel],
+                fmin=freq_window[0],
+                fmax=freq_window[1],
+                show=False,
+                spatial_colors=False,
+            )
+        ax[channel_idx].set_title(channel)
 
-model_name = "real"
-data, markers, sampling_rate = get_data(model_name, cython=True)
-raw = raw_from_npy(data, sampling__rate=sampling_rate)
-filtered = filter_raw(raw.copy(), notch=(25, 50), notch_width=0.5)
-filtered.plot_psd()
-# %% Alternative
+    fig.set_tight_layout(True)
+    fig.suptitle("Power spectral density per class")
+    custom_lines = [Line2D([0], [0], color=col, lw=2) for col in label_cols]
+    fig.legend(custom_lines, ["left", "right", "up"])
 
-path = f"{DATA_PATH}/recordings/real.npy"
-trials = np.load(path)
+    plt.show()
 
-raw = raw_from_npy(trials[1:9, :], sampling__rate=125)
-filtered = filter_raw(raw.copy(), notch=(25, 50), notch_width=0.5)
 
-# Plots
-# filtered.plot_psd()
-# raw.plot_psd_topo(fmin=8, fmax=13)
-# %%
+if __name__ == "__main__":
+    model_name = "real"
+    data, marker_data, sampling_rate = get_data(model_name, cython=True)
+    raw = raw_from_npy(data, sampling__rate=sampling_rate)
+    filtered = filter_raw(raw.copy(), bandpass=(1, 60), notch=(25, 50), notch_width=0.5)
+    epochs = epochs_from_raw(filtered, marker_data, sampling_rate=sampling_rate)
+
+    # Look at filtering effect
+    # raw.plot_psd()
+    # filtered.plot_psd()
+
+    # Visualize power spectrum between labels
+    channels = ["C3", "Cz", "C4"]
+    plot_psd_per_label(epochs, channels, freq_window=(8, 13))
