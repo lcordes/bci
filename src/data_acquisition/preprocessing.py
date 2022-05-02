@@ -76,18 +76,17 @@ def epochs_from_raw(raw, marker_data, sampling_rate):
     event_arr = np.column_stack(
         (onsets, np.zeros(len(marker_labels), dtype=int), marker_labels)
     )
-    print(event_arr[:5, :])
     epochs = mne.Epochs(raw, event_arr, tmin=0, tmax=2, baseline=None, preload=True)
     return epochs
 
 
 def plot_psd_per_label(epochs, channels, freq_window):
-    fig, ax = plt.subplots(len(channels))
+    fig, ax = plt.subplots(3, 3)
     label_cols = ["red", "green", "blue"]
     for channel_idx, channel in enumerate(channels):
         for label_idx, label in enumerate(["1", "2", "3"]):
             epochs[label].plot_psd(
-                ax=ax[channel_idx],
+                ax=fig.axes[channel_idx],
                 color=label_cols[label_idx],
                 picks=[channel],
                 fmin=freq_window[0],
@@ -95,13 +94,13 @@ def plot_psd_per_label(epochs, channels, freq_window):
                 show=False,
                 spatial_colors=False,
             )
-        ax[channel_idx].set_title(channel)
+        fig.axes[channel_idx].set_title(channel)
 
     fig.set_tight_layout(True)
     fig.suptitle("Power spectral density per class")
     custom_lines = [Line2D([0], [0], color=col, lw=2) for col in label_cols]
     fig.legend(custom_lines, ["left", "right", "up"])
-    plt.show()
+    return fig
 
 
 def plot_log_variance(epochs, channels):
@@ -115,37 +114,48 @@ def plot_log_variance(epochs, channels):
     for label in [1, 2, 3]:
         bar_dat[:, label - 1] = np.mean(log_var[labels == label, :], axis=0)
 
-    # n_plots == bar_dat.shape[0]
     fig, ax = plt.subplots(3, 3, sharey=True)
-    print(ax)
     for idx, channel in enumerate(channels):
         fig.axes[idx].bar(["left", "right", "up"], bar_dat[idx, :])
         cutoff = np.min(bar_dat) - 0.2
         fig.axes[idx].set_ylim(bottom=cutoff)
+
         fig.axes[idx].set_title(channel)
 
     fig.set_tight_layout(True)
     fig.suptitle("Log variance per class")
-    plt.show()
+    return fig
+
+
+def save_preprocessing_plots(name, channels, raw, filtered, epochs, bandpass):
+    path = f"{DATA_PATH}/plots/{name}"
+    raw.plot_psd().savefig(f"{path}_psd_unfiltered.png")
+    filtered.plot_psd().savefig(f"{path}_psd_filtered.png")
+    plot_psd_per_label(epochs, channels, freq_window=bandpass).savefig(
+        f"{path}_psd_per_class.png"
+    )
+    plot_log_variance(epochs, channels).savefig(f"{path}_log_variance_per_class.png")
 
 
 if __name__ == "__main__":
     recording_name = "real"
+    bandpass = (8, 13)
+    notch = (25, 50)
     data, marker_data, sampling_rate = get_data(recording_name, cython=True)
     raw = raw_from_npy(data, sampling__rate=sampling_rate)
-    filtered = filter_raw(raw.copy(), bandpass=(8, 13), notch=(25, 50), notch_width=0.5)
+    filtered = filter_raw(raw.copy(), bandpass=bandpass, notch=notch, notch_width=0.5)
     epochs = epochs_from_raw(filtered, marker_data, sampling_rate=sampling_rate)
 
-    plot = True
-    if plot:
-        # Look at filtering effect
-        raw.plot_psd()
-        filtered.plot_psd()
+    # Look at filtering effect
+    raw.plot_psd()
+    filtered.plot_psd()
 
-        # Visualize power spectrum between labels
-        channels = ["C3", "Cz", "C4"]
-        plot_psd_per_label(epochs, channels, freq_window=(8, 13))
+    # Visualize power spectrum between labels
+    channels = ["CP1", "C3", "FC1", "Cz", "FC2", "C4", "CP2", "Fpz"]
+    plot_psd_per_label(epochs, channels, freq_window=bandpass)
+    plt.show()
 
-        # Visualize log variance between labels
-        channels = ["CP1", "C3", "FC1", "Cz", "FC2", "C4", "CP2", "Fpz"]
-        plot_log_variance(epochs, channels)
+    # Visualize log variance between labels
+    channels = ["CP1", "C3", "FC1", "Cz", "FC2", "C4", "CP2", "Fpz"]
+    plot_log_variance(epochs, channels)
+    plt.show()
