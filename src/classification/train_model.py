@@ -59,21 +59,18 @@ if __name__ == "__main__":
     class_frequencies = np.asarray(np.unique(y, return_counts=True))
     print("Class frequencies:\n", class_frequencies)
     channels = ["CP1", "C3", "FC1", "Cz", "FC2", "C4", "CP2", "Fpz"]
-    pre.save_preprocessing_plots(
-        recording_name, channels, raw, filtered, epochs, bandpass
-    )
+    pre.save_preprocessing_plots(model_name, channels, raw, filtered, epochs, bandpass)
 
     # Train and save the extractor
     extractor = MIExtractor(type="CSP")
-    X_transformed = extractor.fit_transform(
-        X, y
-    )  # pass raw directly here since csp is also mne?
+    X_transformed = extractor.fit_transform(X, y)
     extractor.save_model(model_name)
     extractor.visualize_csp(model_name)
     print("Extractor trained and saved successfully.")
 
-    # Train and save the extractor
+    # Train and save the classifier
     classifier = Classifier(type="LDA")
     classifier.fit(X_transformed, y)
     classifier.save_model(model_name)
     print("Classifier trained and saved successfully.")
+    classifier.score_looc(X_transformed, y)

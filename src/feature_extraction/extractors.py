@@ -42,7 +42,6 @@ class MIExtractor:
 
     def save_model(self, model_name):
         if self.model:
-            print((self.model.n_channels))
             path = f"{DATA_PATH}/models/{self.type}/{model_name}.pkl"
             joblib.dump(self.model, path)
         else:
@@ -72,7 +71,7 @@ class MIExtractor:
 
     def get_n_channels(self):
         if not self.model:
-            print("Model not yrtloaded")
+            print("Model not loaded")
             return None
         else:
             return self.model.n_channels
@@ -81,9 +80,9 @@ class MIExtractor:
         channels = ["CP1", "C3", "FC1", "Cz", "FC2", "C4", "CP2", "Fpz"]
         info = create_info(ch_names=channels, sfreq=125, ch_types="eeg")
         info.set_montage("standard_1020")
-        self.model.plot_patterns(info)
-        path = f"{DATA_PATH}/plots/csp_patters_{model_name}.png"
-        plt.savefig(path)
+        path = f"{DATA_PATH}/plots/{model_name}"
+        self.model.plot_patterns(info).savefig(f"{path}_csp_patterns.png")
+        self.model.plot_filters(info).savefig(f"{path}_csp_filters.png")
 
 
 class ConcentrationExtractor:
