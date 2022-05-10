@@ -5,5 +5,9 @@ DATA_PATH=data
 TRIAL_LENGTH = 2
 TRIAL_OFFSET = 0.5
 
-## Headset specific variables
+# Headset specific variables
 SERIAL_PORT=/dev/ttyUSB0 # serial port path on linux-based systems
+
+# Motor imagery classes
+MARKERS = list
+

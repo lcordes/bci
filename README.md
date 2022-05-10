@@ -40,14 +40,6 @@ Or in sandbox mode without obstacles:
 
     python3 src/apps/game.py --sandbox
 
-## Measuring concentration
-To get a visual measure of how concentrated the current user is start the BCI server in concentration mode instead:
-
-    python3 src/bci_server.py --concentration
-
-Then start the interface in a separate terminal:
-
-    python3 src/apps/concentration.py
 
 ### Assessing model accuracy using the experiment interface
 

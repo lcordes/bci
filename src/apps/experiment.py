@@ -13,7 +13,7 @@ sys.path.append(parent_dir)
 from data_acquisition.data_handler import OpenBCIHandler
 from communication.client_server import Client
 
-TRIALS_PER_CLASS = 2
+TRIALS_PER_CLASS = 40
 WINDOW_SIZE = 800
 BLACK = (0, 0, 0)
 GREEN = (0, 255, 0)
@@ -21,7 +21,7 @@ RED = (255, 0, 0)
 WHITE = (255, 255, 255)
 SHAPE_RADIUS = 15
 PYGAME_KEYS = {"space": pygame.K_SPACE, "esc": pygame.K_ESCAPE}
-MARKERS = ["left", "right", "up"]
+MARKERS = ["left", "right", "up"]  # TODO Change this to left right up, move to env
 
 
 class ExperimentGUI:
@@ -163,7 +163,7 @@ class DataGenerator(ExperimentGUI):
                 self.data_handler.insert_marker(MARKERS.index(self.current_marker) + 1)
                 self.display_text("", BLACK)
                 self.state = "trial_end"
-                pygame.time.delay(3000)
+                pygame.time.delay(3500)
 
             elif self.state == "trial_end":
                 self.draw_circle()

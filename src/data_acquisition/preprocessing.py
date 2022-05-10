@@ -17,7 +17,7 @@ TRIAL_OFFSET = float(os.environ["TRIAL_OFFSET"])
 TRIAL_OFFSET = float(os.environ["TRIAL_OFFSET"])
 
 
-def get_data(recording_name, cython=False):
+def get_data(recording_name, n_channels):
     # TODO: Instead of deleting additional channels add them to raw as non-data channels
 
     """
@@ -40,22 +40,32 @@ def get_data(recording_name, cython=False):
     sample_channel = 0
     marker_channel = BoardShim.get_marker_channel(board_id)
     board_channel = trials.shape[0] - 1  # Last channel/row
-    assert marker_channel in [
-        31,
-        17,
-    ], "Check if marker channel is correct in prepare_trials"
+    # TODO: update assert (trial_channel is now addtional column in recordings)
+    # assert marker_channel in [
+    #     31,
+    #     17,
+    # ], "Check if marker channel is correct in prepare_trials"
     marker_data = trials[marker_channel, :].flatten()
 
     # Remove non-voltage channels
     trials_cleaned = np.delete(
         trials, [sample_channel, marker_channel, board_channel], axis=0
     )
-    trials_cleaned = trials_cleaned[:8, :] if cython else trials_cleaned[:16, :]
+    trials_cleaned = trials_cleaned[:n_channels, :]
     return trials_cleaned, marker_data, sampling_rate
 
 
 def raw_from_npy(data, sampling__rate):
-    channels = ["CP1", "C3", "FC1", "Cz", "FC2", "C4", "CP2", "Fpz"]
+    channels = [
+        "CP1",
+        "C3",
+        "FC1",
+        "Cz",
+        "FC2",
+        "C4",
+        "CP2",
+        "Fpz",
+    ]  # TODO Double check order, also add option for 16 channel
     info = mne.create_info(ch_names=channels, sfreq=sampling__rate, ch_types="eeg")
     info.set_montage("standard_1020")
     raw = mne.io.RawArray(data, info)
@@ -107,7 +117,7 @@ def plot_log_variance(epochs, channels):
     # Get bar data
     epochs_subset = epochs.pick(channels)
     dat = epochs_subset.get_data()
-    log_var = np.log(np.var(dat, axis=2))
+    log_var = np.log(np.var(dat, axis=2))  # correct to take log var here and not later?
     labels = epochs_subset.events[:, 2]
 
     bar_dat = np.zeros((dat.shape[1], 3))
@@ -127,6 +137,19 @@ def plot_log_variance(epochs, channels):
     return fig
 
 
+def plot_log_variance_2(transformed, y):
+
+    label_dat = [transformed[y == label, :] for label in [1, 2, 3]]
+    label_dat = [np.log(np.var(dat, axis=0)) for dat in label_dat]
+    fig, ax = plt.subplots(3, 3, sharey=True)
+    for idx in range(8):
+        bar_dat = [label_dat[0][idx], label_dat[1][idx], label_dat[2][idx]]
+        fig.axes[idx].bar(["left", "right", "up"], bar_dat)
+    fig.set_tight_layout(True)
+    fig.suptitle("Log variance per class")
+    return fig
+
+
 def save_preprocessing_plots(name, channels, raw, filtered, epochs, bandpass):
     path = f"{DATA_PATH}/plots/{name}"
     raw.plot_psd().savefig(f"{path}_psd_unfiltered.png")
@@ -141,7 +164,7 @@ if __name__ == "__main__":
     recording_name = "real"
     bandpass = (8, 13)
     notch = (25, 50)
-    data, marker_data, sampling_rate = get_data(recording_name, cython=True)
+    data, marker_data, sampling_rate = get_data(recording_name, n_channels=8)
     raw = raw_from_npy(data, sampling__rate=sampling_rate)
     filtered = filter_raw(raw.copy(), bandpass=bandpass, notch=notch, notch_width=0.5)
     epochs = epochs_from_raw(filtered, marker_data, sampling_rate=sampling_rate)

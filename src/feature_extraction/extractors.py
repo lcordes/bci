@@ -1,37 +1,18 @@
 import joblib
-import numpy as np
 import os
 from dotenv import load_dotenv
 
 from mne import create_info
 from mne.decoding import CSP
-from matplotlib import pyplot as plt
-
-from brainflow.board_shim import BoardShim
-from brainflow.data_filter import DataFilter
-from brainflow.exit_codes import *
-from brainflow.ml_model import (
-    MLModel,
-    BrainFlowMetrics,
-    BrainFlowClassifiers,
-    BrainFlowModelParams,
-)
 
 load_dotenv()
 DATA_PATH = os.environ["DATA_PATH"]
 
 
-class MIExtractor:
-    def __init__(self, type="CSP", space=None):
-        self.type = type
-        if type == "CSP":
-            self.model = CSP(n_components=4)
-            if space:
-                self.model.set_params(
-                    transform_into=space
-                )  # get optional **params to work here
-        else:
-            raise Exception("Extractor type does not exist.")
+class Extractor:
+    def __init__(self):
+        self.type = "default"
+        self.model = None
 
     def load_model(self, model_name):
         path = f"{DATA_PATH}/models/{self.type}/{model_name}.pkl"
@@ -76,6 +57,16 @@ class MIExtractor:
         else:
             return self.model.n_channels
 
+
+class CSPExtractor(Extractor):
+    def __init__(self, space=None):
+        self.type = "CSP"
+        self.model = CSP(n_components=8)  # TODO make n_comps dependent on data
+        if space:
+            self.model.set_params(
+                transform_into=space
+            )  # TODO look into space transform, else delete
+
     def visualize_csp(self, model_name):
         channels = ["CP1", "C3", "FC1", "Cz", "FC2", "C4", "CP2", "Fpz"]
         info = create_info(ch_names=channels, sfreq=125, ch_types="eeg")
@@ -83,26 +74,3 @@ class MIExtractor:
         path = f"{DATA_PATH}/plots/{model_name}"
         self.model.plot_patterns(info).savefig(f"{path}_csp_patterns.png")
         self.model.plot_filters(info).savefig(f"{path}_csp_filters.png")
-
-
-class ConcentrationExtractor:
-    def __init__(self, sr, board_id):
-        self.sr = sr
-        self.board_id = board_id
-
-    def get_concentration(self, data):
-        eeg_channels = BoardShim.get_eeg_channels(int(self.board_id))
-        data = np.squeeze(data)
-        bands = DataFilter.get_avg_band_powers(data, eeg_channels, self.sr, True)
-        feature_vector = np.concatenate((bands[0], bands[1]))
-
-        # calc concentration
-        concentration_params = BrainFlowModelParams(
-            BrainFlowMetrics.CONCENTRATION.value, BrainFlowClassifiers.KNN.value
-        )
-        concentration = MLModel(concentration_params)
-        concentration.prepare()
-        conc = int(concentration.predict(feature_vector) * 100)
-        concentration.release()
-
-        return conc

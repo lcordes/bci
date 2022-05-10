@@ -10,12 +10,10 @@ DATA_PATH = os.environ["DATA_PATH"]
 
 
 class Classifier:
-    def __init__(self, type="LDA"):
-        self.type = type
-        if type == "LDA":
-            self.model = LinearDiscriminantAnalysis()
-        else:
-            raise Exception("Classifier type does not exist.")
+    def __init__(self):
+        self.model = None
+        self.model_constructor = None
+        self.type = "default"
 
     def load_model(self, model_name):
         path = f"{DATA_PATH}/models/{self.type}/{model_name}.pkl"
@@ -39,7 +37,6 @@ class Classifier:
 
     def predict_probs(self, X):
         probs = self.model.predict_proba(X)[0]
-        # probs = [np.round(prob, 3) for prob in probs]
         assert len(probs) == 3, "Class probabilities are not equal to 3"
         return probs
 
@@ -50,7 +47,14 @@ class Classifier:
         for train_index, test_index in looc.split(X):
             X_train, X_test = X[train_index], X[test_index]
             y_train, y_test = y[train_index], y[test_index]
-            clf = LinearDiscriminantAnalysis()
+            clf = self.model_constructor()
             clf.fit(X_train, y_train)
             scores.append(clf.score(X_test, y_test))
-        print("LDA Leave-one-out-CV mean accuracy:", np.round(np.mean(scores), 3))
+        print("Leave-one-out-CV mean accuracy:", np.round(np.mean(scores), 3))
+
+
+class LDAClassifier(Classifier):
+    def __init__(self):
+        self.type = "LDA"
+        self.model_constructor = LinearDiscriminantAnalysis
+        self.model = self.model_constructor()

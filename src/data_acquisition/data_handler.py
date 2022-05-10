@@ -44,14 +44,11 @@ class OpenBCIHandler:
     def get_current_data(self, n_channels):
         n_samples = int(self.sampling_rate * TRIAL_LENGTH)
         data = self.board.get_current_board_data(n_samples)
-        data = data[1:n_channels, :]
+
+        # Disregard first row (time sample_channel) and then keep the next n_channel rows
+        data = data[1 : (n_channels + 1), :]
         data = np.expand_dims(data, axis=0)
         return data
-
-    def get_concentration_data(self, n_samples=None):
-        if not n_samples:
-            n_samples = int(self.sampling_rate * 5)
-        return self.board.get_current_board_data(n_samples)
 
     def insert_marker(self, marker):
         self.board.insert_marker(marker)
@@ -69,7 +66,7 @@ class OpenBCIHandler:
         self.board.stop_stream()
         self.board.release_session()
 
-        # Append column with board_id to recording
+        # Append board_id info to recording
         board_id_row = np.full((1, data.shape[1]), self.board_id)
         data = np.append(data, board_id_row, axis=0)
 
@@ -89,6 +86,8 @@ class OpenBCIHandler:
             data = np.load(
                 f"{DATA_PATH}/recordings/tmp/#{self.session_id}_trial_{trial}.npy"
             )
+
+            # Append trial and board_id info to recording
             trial_row = np.full((1, data.shape[1]), trial)
             board_id_row = np.full((1, data.shape[1]), self.board_id)
             data = np.append(data, trial_row, axis=0)
@@ -99,7 +98,7 @@ class OpenBCIHandler:
                 recording = np.append(recording, data, axis=1)
         return recording
 
-    def exit(self):
+    def merge_trials_and_exit(self):
         """Stop data stream and attempt to merge trial data files"""
         self.board.stop_stream()
         self.board.release_session()
@@ -111,7 +110,7 @@ class OpenBCIHandler:
                 f"{DATA_PATH}/recordings/Training_session_#{self.session_id}_{session_time}",
                 recording,
             )
-            # TODO: delete tmp files here
+            # TODO: delete tmp files here?
             print(f"Successfully aggregated session #{self.session_id} recording file.")
         except Exception as e:
             print("Couldn't aggregate tmp file, got error:", e)
@@ -125,4 +124,4 @@ if __name__ == "__main__":
         sleep(1)
         handler.save_trial()
 
-    handler.exit()
+    handler.merge_trials_and_exit()

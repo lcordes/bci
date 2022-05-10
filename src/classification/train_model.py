@@ -4,23 +4,23 @@ from pathlib import Path
 
 parent_dir = str(Path(__file__).parents[1].resolve())
 sys.path.append(parent_dir)
-from feature_extraction.extractors import MIExtractor
+from feature_extraction.extractors import CSPExtractor
 from data_acquisition import preprocessing as pre
-from classifiers import Classifier
-from brainflow.board_shim import BoardShim
+from classifiers import LDAClassifier
 import numpy as np
 import os
 from dotenv import load_dotenv
 
 import matplotlib
+import mne
 
 matplotlib.use("Agg")
+mne.set_log_level("WARNING")
 
 load_dotenv()
 DATA_PATH = os.environ["DATA_PATH"]
 SERIAL_PORT = os.environ["SERIAL_PORT"]
 TRIAL_LENGTH = float(os.environ["TRIAL_LENGTH"])
-TRIAL_OFFSET = float(os.environ["TRIAL_OFFSET"])
 TRIAL_OFFSET = float(os.environ["TRIAL_OFFSET"])
 
 
@@ -33,10 +33,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "model_name", help="Name for saving the trained model (without extension)."
     )
-
     parser.add_argument(
-        "--cython",
-        help="Train model on the 8 cython channels only.",
+        "--daisy",
+        help="Use all 16 channels for model training",
         action="store_true",
         default=False,
     )
@@ -45,7 +44,8 @@ if __name__ == "__main__":
     model_name = args.model_name.replace(".pkl", "")
 
     # Preprocess the trial data
-    data, marker_data, sampling_rate = pre.get_data(recording_name, cython=args.cython)
+    n_channels = 16 if args.daisy else 8
+    data, marker_data, sampling_rate = pre.get_data(recording_name, n_channels)
     raw = pre.raw_from_npy(data, sampling_rate)
     bandpass = (8, 13)
     notch = (25, 50)
@@ -62,14 +62,17 @@ if __name__ == "__main__":
     pre.save_preprocessing_plots(model_name, channels, raw, filtered, epochs, bandpass)
 
     # Train and save the extractor
-    extractor = MIExtractor(type="CSP")
+    extractor = CSPExtractor()
     X_transformed = extractor.fit_transform(X, y)
     extractor.save_model(model_name)
     extractor.visualize_csp(model_name)
     print("Extractor trained and saved successfully.")
+    pre.plot_log_variance_2(X_transformed, y).savefig(
+        "comp_var.png"
+    )  # TODO Is this plot necessary?
 
     # Train and save the classifier
-    classifier = Classifier(type="LDA")
+    classifier = LDAClassifier()
     classifier.fit(X_transformed, y)
     classifier.save_model(model_name)
     print("Classifier trained and saved successfully.")
