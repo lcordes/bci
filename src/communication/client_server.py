@@ -1,4 +1,5 @@
 import zmq
+from time import sleep
 
 
 class Client:
@@ -6,14 +7,25 @@ class Client:
         self.context = zmq.Context()
         self.socket = self.context.socket(zmq.REQ)
         self.socket.connect("tcp://localhost:5555")
-
-        print("Connected to BCI server")
+        self.status = self.server_probe()
 
     def request_command(self):
         self.socket.send(b"Command")
 
-    def get_command(self):
-        return self.socket.recv().decode("UTF-8")
+    def get_command(self, no_block=0):
+        return self.socket.recv(no_block).decode("UTF-8")
+
+    def server_probe(self):
+        self.request_command()
+        sleep(0.1)
+        try:
+            self.get_command(no_block=1)
+            return "connected"
+        except Exception:
+            return "no connection"
+
+    def connected(self):
+        return True if self.status == "connected" else False
 
 
 class Server:
