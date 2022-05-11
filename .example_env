@@ -2,12 +2,16 @@
 DATA_PATH=data
 
 # Experiment setup
-TRIAL_LENGTH = 2
-TRIAL_OFFSET = 0.5
+TRIAL_LENGTH=2
+TRIAL_OFFSET=0.5
+IMAGERY_PERIOD=3.5
+TRIALS_PER_CLASS=1
+TRIAL_END_MARKER=9
+CLASSES=left,right,down
+
+# GUI Aspect ratio
+X_SIZE = 1200
+Y_SIZE = 800
 
 # Headset specific variables
 SERIAL_PORT=/dev/ttyUSB0 # serial port path on linux-based systems
-
-# Motor imagery classes
-MARKERS = list
-
