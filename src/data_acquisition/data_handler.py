@@ -41,8 +41,10 @@ class OpenBCIHandler:
         except:
             self.status = "no_connection"
 
-    def get_current_data(self, n_channels):
-        n_samples = int(self.sampling_rate * TRIAL_LENGTH)
+    def get_current_data(self, n_channels, n_samples=None):
+        n_samples = (
+            int(self.sampling_rate * TRIAL_LENGTH) if not n_samples else n_samples
+        )
         data = self.board.get_current_board_data(n_samples)
 
         # Disregard first row (time sample_channel) and then keep the next n_channel rows

@@ -95,6 +95,7 @@ if __name__ == "__main__":
         nargs="?",
         default="daisy",
         const="daisy",
+        choices=["synthetic", "cython", "daisy"],
         help="Use synthetic or cython board instead of daisy",
     )
     args = parser.parse_args()
