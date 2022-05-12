@@ -11,6 +11,7 @@ from pathlib import Path
 parent_dir = str(Path(__file__).parents[1].resolve())
 sys.path.append(parent_dir)
 from data_acquisition.data_handler import OpenBCIHandler
+from matplotlib.animation import FuncAnimation
 
 
 def check_railed(data):
@@ -27,7 +28,28 @@ def check_railed(data):
         else:
             not_railed.append(channel)
 
-    return railed, not_railed
+    return not_railed, railed
+
+
+def update_plot(frame):
+    sample = np.squeeze(handler.get_current_data(args.n_channels, n_samples=n_samples))
+    railed, not_railed = check_railed(sample)
+
+    if railed:
+        names = [channel_map[str(num + 1)] for num in railed]
+        print(f"Potentially railed channels: {names}")
+
+    fig = mne.viz.plot_sensors(
+        info,
+        show_names=True,
+        axes=ax,
+        ch_groups=[[], not_railed, railed],
+        pointsize=100,
+        show=False,
+        linewidth=0,
+    )
+    plt.pause(0.2)
+    return fig
 
 
 if __name__ == "__main__":
@@ -53,52 +75,24 @@ if __name__ == "__main__":
         help="Choose number of channels to investigate for railing",
     )
 
-    parser.add_argument(
-        "--plot",
-        help="Generate live head plot of railed channels",
-        action="store_true",
-        default=False,
-    )
-
     args = parser.parse_args()
 
-    handler = OpenBCIHandler(board_type=args.board_type)
     with open("architecture/channel_map.json", "r") as file:
         channel_map = json.load(file)
-    check_window = 4  # time window in s in which railing is determined
 
-    if args.plot:
-        info = mne.create_info(
-            ch_names=list(channel_map.values()),
-            sfreq=handler.sampling_rate,
-            ch_types="eeg",
-        )
-        info.set_montage("standard_1020")
-        fig = mne.viz.plot_sensors(info, pointsize=100, show=False)
-        plt.pause(0.2)
+    handler = OpenBCIHandler(board_type=args.board_type)
+    check_window = 2  # update interval in ms
+    n_samples = handler.sampling_rate * check_window
+    info = mne.create_info(
+        ch_names=list(channel_map.values()),
+        sfreq=handler.sampling_rate,
+        ch_types="eeg",
+    )
+    info.set_montage("standard_1020")
+    sleep(check_window)
 
-    while True:
-        n_samples = handler.sampling_rate * check_window
-        sleep(check_window)
-        sample = np.squeeze(
-            handler.get_current_data(args.n_channels, n_samples=n_samples)
-        )
-        railed, not_railed = check_railed(sample)
-
-        if railed:
-            names = [channel_map[str(num + 1)] for num in railed]
-            print(f"Potentially railed channels: {names}")
-        else:
-            print("Nothing looks railed.")
-
-        if args.plot:
-            plt.close()
-            fig = mne.viz.plot_sensors(
-                info,
-                show_names=True,
-                ch_groups=[[], not_railed, railed],
-                pointsize=100,
-                show=False,
-                linewidth=0,
-            )
-            plt.pause(0.2)
+    fig = plt.figure()
+    ax = fig.add_subplot()
+    interval = check_window * 1000
+    anim = FuncAnimation(fig=fig, func=update_plot, interval=interval)
+    plt.show()
