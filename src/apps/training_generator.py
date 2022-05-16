@@ -103,11 +103,11 @@ if __name__ == "__main__":
     parser.add_argument(
         "--board",
         dest="board_type",
-        choices=["synthetic", "cython", "daisy"],
+        choices=["synthetic", "cyton", "daisy"],
         const="daisy",
         nargs="?",
         type=str,
-        help="Use synthetic or cython board instead of daisy.",
+        help="Use synthetic or cyton board instead of daisy.",
     )
     args = parser.parse_args()
 

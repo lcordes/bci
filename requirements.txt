@@ -3,9 +3,10 @@ pygame
 python-dotenv
 pyzmq
 numpy
-pyqtgraph
 pandas
 scipy
 joblib
+h5py
 mne
 sklearn
+

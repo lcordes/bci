@@ -45,8 +45,10 @@ if __name__ == "__main__":
 
     # Preprocess the trial data
     n_channels = 16 if args.daisy else 8
-    data, marker_data, sampling_rate = pre.get_data(recording_name, n_channels)
-    raw = pre.raw_from_npy(data, sampling_rate)
+    data, marker_data, channel_names, sampling_rate = pre.get_data(
+        recording_name, n_channels
+    )
+    raw = pre.raw_from_array(data, sampling_rate, channel_names)
     bandpass = (8, 13)
     notch = (25, 50)
     filtered = pre.filter_raw(

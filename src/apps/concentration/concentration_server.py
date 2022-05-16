@@ -133,7 +133,7 @@ if __name__ == "__main__":
         nargs="?",
         default="daisy",
         const="daisy",
-        help="Use synthetic or cython board instead of daisy",
+        help="Use synthetic or cyton board instead of daisy",
     )
     args = parser.parse_args()
     print(args.board)

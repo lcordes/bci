@@ -1,9 +1,16 @@
 import numpy as np
 import os
 import mne
+import h5py
 from dotenv import load_dotenv
 from brainflow.board_shim import BoardShim
 import matplotlib.pyplot as plt
+import sys
+from pathlib import Path
+
+parent_dir = str(Path(__file__).parents[1].resolve())
+sys.path.append(parent_dir)
+from data_acquisition.rail_check import check_railed
 
 plt.style.use("fivethirtyeight")
 from matplotlib.lines import Line2D
@@ -14,59 +21,42 @@ DATA_PATH = os.environ["DATA_PATH"]
 SERIAL_PORT = os.environ["SERIAL_PORT"]
 TRIAL_LENGTH = float(os.environ["TRIAL_LENGTH"])
 TRIAL_OFFSET = float(os.environ["TRIAL_OFFSET"])
-TRIAL_OFFSET = float(os.environ["TRIAL_OFFSET"])
 
 
 def get_data(recording_name, n_channels):
-    # TODO: Instead of deleting additional channels add them to raw as non-data channels
+    # TODO: Add additional channels to raw as non-data channels
 
     """
     Loads a training session recording of shape (channels x samples).
     Returns a training data set of shape (trials x channels x samples)
     and a corresponding set of labels with shape (trials).
     """
-    path = f"{DATA_PATH}/recordings/{recording_name}.npy"
-    trials = np.load(path)
+    path = f"data/recordings/{recording_name}.hdf5"
+    # trials = np.load(path)
+    with h5py.File(path, "r") as file:
+        trials = file["data"][()]
+        metadata = dict(file["data"].attrs)
+
     assert (
         trials.shape[0] < trials.shape[1]
     ), "Data shape incorrect, there are more channels than samples."
 
     # Get board specific info
-    board_id = int(trials[-1, -1])
+    board_id = metadata["board_id"]
     assert board_id in [-1, 2], "Invalid board_id in recording"
-    sampling_rate = BoardShim.get_sampling_rate(board_id)
-
-    # Extract marker info
-    sample_channel = 0
-    marker_channel = BoardShim.get_marker_channel(board_id)
-    board_channel = trials.shape[0] - 1  # Last channel/row
-    # TODO: update assert (trial_channel is now addtional column in recordings)
-    # assert marker_channel in [
-    #     31,
-    #     17,
-    # ], "Check if marker channel is correct in prepare_trials"
+    board_info = BoardShim.get_board_descr(board_id)
+    sampling_rate = board_info["sampling_rate"]
+    eeg_channels = board_info["eeg_channels"]
+    marker_channel = board_info["marker_channel"]
     marker_data = trials[marker_channel, :].flatten()
-
-    # Remove non-voltage channels
-    trials_cleaned = np.delete(
-        trials, [sample_channel, marker_channel, board_channel], axis=0
-    )
-    trials_cleaned = trials_cleaned[:n_channels, :]
-    return trials_cleaned, marker_data, sampling_rate
+    eeg_data = trials[eeg_channels, :]
+    channel_names = list(metadata["channel_names"])
+    print(type(channel_names))
+    return eeg_data, marker_data, channel_names, sampling_rate
 
 
-def raw_from_npy(data, sampling__rate):
-    channels = [
-        "CP1",
-        "C3",
-        "FC1",
-        "Cz",
-        "FC2",
-        "C4",
-        "CP2",
-        "Fpz",
-    ]  # TODO Double check order, also add option for 16 channel
-    info = mne.create_info(ch_names=channels, sfreq=sampling__rate, ch_types="eeg")
+def raw_from_array(data, sampling_rate, channel_names):
+    info = mne.create_info(ch_names=channel_names, sfreq=sampling_rate, ch_types="eeg")
     info.set_montage("standard_1020")
     raw = mne.io.RawArray(data, info)
     return raw
@@ -88,6 +78,16 @@ def epochs_from_raw(raw, marker_data, sampling_rate):
     )
     epochs = mne.Epochs(raw, event_arr, tmin=0, tmax=2, baseline=None, preload=True)
     return epochs
+
+
+def railed_trials_count(epochs_dat):
+    n_epochs = epochs_dat.shape[0]
+    railed = []
+    for trial in range(n_epochs):
+        _, railed_nums = check_railed(epochs_dat[trial, :, :])
+        railed.extend(railed_nums)
+    channels, counts = np.unique(railed, return_counts=True)
+    print(channels, counts)
 
 
 def plot_psd_per_label(epochs, channels, freq_window):
@@ -161,13 +161,16 @@ def save_preprocessing_plots(name, channels, raw, filtered, epochs, bandpass):
 
 
 if __name__ == "__main__":
-    recording_name = "real"
+    recording_name = "test"
     bandpass = (8, 13)
     notch = (25, 50)
-    data, marker_data, sampling_rate = get_data(recording_name, n_channels=8)
-    raw = raw_from_npy(data, sampling__rate=sampling_rate)
+    data, marker_data, channel_names, sampling_rate = get_data(
+        recording_name, n_channels=8
+    )
+    raw = raw_from_array(data, sampling_rate=sampling_rate, channel_names=channel_names)
     filtered = filter_raw(raw.copy(), bandpass=bandpass, notch=notch, notch_width=0.5)
     epochs = epochs_from_raw(filtered, marker_data, sampling_rate=sampling_rate)
+    railed_trials_count(epochs.get_data())
 
     # Look at filtering effect
     raw.plot_psd()

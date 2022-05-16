@@ -1,5 +1,6 @@
 # Paths
 DATA_PATH=data
+CHANNEL_MAP_PATH=architecture/channel_map.json
 
 # Experiment setup
 TRIAL_LENGTH=2

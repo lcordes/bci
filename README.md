@@ -1,4 +1,4 @@
-# Utilities and Apps for Motor Imagery Classification using a Brain Computer Interface.
+# Utilities and Apps for Motor Imagery Prediction using a Brain Computer Interface.
 Scripts should be run from the project root directory. You can view optional parameters using -h:
 
     python3 script.py -h
@@ -6,15 +6,18 @@ Scripts should be run from the project root directory. You can view optional par
 ## Setup
 - First, install the necessary requirements (preferably in a virtual environment):
 
-        pip3 install -r requirements.txt
+        pip install -r requirements.txt
 
 - Rename the '.example_env' file in the root directory to '.env' and update its environment variables
+
+
+![Overview of the Pipeline](https://github.com/lcordes/bci/architecture/pipeline.png)
 
 
 ## Generating training data and training models
 Use the experiment interface to create a recording of motor imagery trials:
 
-    python3 src/apps/experiment.py --log --train
+    python3 src/apps/train_generator.py
 
 Train a feature extraction and a classifier model, specifying the recording from which you want to train and the name with which the models should be saved:
 
@@ -27,7 +30,7 @@ Start the BCI server for data acquisition and motor imagery prediction, specifyi
 
 Alternatively, run the server without connecting to a headset using simulated EEG data instead:
     
-    python3 src/bci_server.py --sim
+    python3 src/bci_server.py --board synthetic
 
 Then start one of the following applications in a seperate terminal.
 
@@ -43,10 +46,10 @@ Or in sandbox mode without obstacles:
 
 ### Assessing model accuracy using the experiment interface
 
-Start the BCI server in evaluation mode:
+Start the BCI server in client mode:
 
-    python3 src/bci_server.py --eval
+    python3 src/bci_server.py --client
 
 Use the experiment interface to get feedback whether your motor imagery is classified correctly by the current model:
 
-    python3 src/apps/experiment.py
+    python3 src/apps/accuracy_checker.py

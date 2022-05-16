@@ -1,17 +1,20 @@
 import argparse
 import numpy as np
-import json
 from time import sleep
 import mne
 from matplotlib import pyplot as plt
 
 import sys
 from pathlib import Path
+import os
 
 parent_dir = str(Path(__file__).parents[1].resolve())
 sys.path.append(parent_dir)
-from data_acquisition.data_handler import OpenBCIHandler
+
+from data_acquisition.data_handler import OpenBCIHandler, get_channel_map
 from matplotlib.animation import FuncAnimation
+
+RAILED_THRESHOLD = 187000
 
 
 def check_railed(data):
@@ -22,8 +25,9 @@ def check_railed(data):
     not_railed = []
     # Get nums of railed hannels
     for channel in range(data.shape[0]):
-        railed_ratio = 1 - (len(np.unique(data[channel, :])) / data.shape[1])
-        if railed_ratio < 0.5:
+        railed_ratio = np.mean(np.abs(data[channel, :]) > RAILED_THRESHOLD)
+        # railed_ratio = 1 - (len(np.unique(data[channel, :])) / data.shape[1])
+        if railed_ratio > 0.5:
             railed.append(channel)
         else:
             not_railed.append(channel)
@@ -33,7 +37,7 @@ def check_railed(data):
 
 def update_plot(frame):
     sample = np.squeeze(handler.get_current_data(args.n_channels, n_samples=n_samples))
-    railed, not_railed = check_railed(sample)
+    not_railed, railed = check_railed(sample)
 
     if railed:
         names = [channel_map[str(num + 1)] for num in railed]
@@ -57,12 +61,12 @@ if __name__ == "__main__":
     parser.add_argument(
         "--board",
         dest="board_type",
-        choices=["synthetic", "cython", "daisy"],
+        choices=["synthetic", "cyton", "daisy"],
         default="daisy",
         const="daisy",
         nargs="?",
         type=str,
-        help="Use synthetic or cython board instead of daisy.",
+        help="Use synthetic or cyton board instead of daisy.",
     )
 
     parser.add_argument(
@@ -77,15 +81,15 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    with open("architecture/channel_map.json", "r") as file:
-        channel_map = json.load(file)
+    channel_map = get_channel_map()
 
     handler = OpenBCIHandler(board_type=args.board_type)
     check_window = 2  # update interval in ms
-    n_samples = handler.sampling_rate * check_window
+    sampling_rate = handler.get_sampling_rate()
+    n_samples = sampling_rate * check_window
     info = mne.create_info(
         ch_names=list(channel_map.values()),
-        sfreq=handler.sampling_rate,
+        sfreq=sampling_rate,
         ch_types="eeg",
     )
     info.set_montage("standard_1020")

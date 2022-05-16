@@ -8,7 +8,7 @@ competition
 *exploration.py
 *.pkl
 *.png
-
+*.hdf5
 
 
 # Byte-compiled / optimized / DLL files
