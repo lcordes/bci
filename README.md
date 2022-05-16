@@ -11,7 +11,7 @@ Scripts should be run from the project root directory. You can view optional par
 - Rename the '.example_env' file in the root directory to '.env' and update its environment variables
 
 
-![Overview of the Pipeline](https://github.com/lcordes/bci/architecture/pipeline.png)
+![Overview of the Pipeline](https://github.com/lcordes/bci/blob/main/architecture/pipeline.png)
 
 
 ## Generating training data and training models
