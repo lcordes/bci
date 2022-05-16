@@ -52,19 +52,14 @@ class Evaluator(ExperimentGUI):
                     pass
                 self.state = "arrow"
 
-            elif self.state == "fixdot":
-                self.draw_circle()
-                self.state = "imagine"
-                pygame.time.delay(1500)
-
             elif self.state == "arrow":
                 self.current_class = choice(CLASSES)
                 self.draw_arrow()
-                self.state = "fixdot"
+                self.state = "imagine"
                 pygame.time.delay(2000)
 
             elif self.state == "imagine":
-                self.display_text("", FRONT_COL)
+                self.draw_cross()
                 self.state = "feedback"
                 pygame.time.delay(IMAGERY_PERIOD)
 

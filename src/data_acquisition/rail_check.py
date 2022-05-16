@@ -14,7 +14,7 @@ sys.path.append(parent_dir)
 from data_acquisition.data_handler import OpenBCIHandler, get_channel_map
 from matplotlib.animation import FuncAnimation
 
-RAILED_THRESHOLD = 187000
+RAILED_THRESHOLD = 100000  # 187000
 
 
 def check_railed(data):
@@ -72,17 +72,19 @@ if __name__ == "__main__":
     parser.add_argument(
         "--n_channels",
         choices=[8, 16],
-        const=16,
-        default=16,
+        default=8,
         nargs="?",
-        type=str,
+        type=int,
         help="Choose number of channels to investigate for railing",
     )
 
     args = parser.parse_args()
 
     channel_map = get_channel_map()
-
+    if args.n_channels == 8:
+        channel_map = {
+            key: value for key, value in channel_map.items() if int(key) <= 8
+        }
     handler = OpenBCIHandler(board_type=args.board_type)
     check_window = 2  # update interval in ms
     sampling_rate = handler.get_sampling_rate()

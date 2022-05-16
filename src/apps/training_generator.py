@@ -26,6 +26,9 @@ class DataGenerator(ExperimentGUI):
         # Create shuffled list containing n TRIALS_PER_CLASS examples of all classes
         self.trial_classes = CLASSES * TRIALS_PER_CLASS
         shuffle(self.trial_classes)
+        total_trials = len(self.trial_classes)
+        self.break_trials = [total_trials // 3, (total_trials // 3) * 2]
+        print(self.break_trials, "🦝")
 
     def exit(self):
         if self.log:
@@ -51,27 +54,32 @@ class DataGenerator(ExperimentGUI):
                     pass
                 self.state = "arrow"
 
-            elif self.state == "fixdot":
-                self.draw_circle()
-                self.state = "imagine"
-                pygame.time.delay(1500)
-
             elif self.state == "arrow":
                 self.current_class = self.trial_classes[self.trial - 1]
                 self.draw_arrow()
-                self.state = "fixdot"
+                self.state = "imagine"
                 pygame.time.delay(2000)
 
             elif self.state == "imagine":
                 self.data_handler.insert_marker(CLASSES.index(self.current_class) + 1)
-                self.display_text("", FRONT_COL)
+                self.draw_cross()
                 self.state = "trial_end"
                 pygame.time.delay(IMAGERY_PERIOD)
                 self.data_handler.insert_marker(TRIAL_END_MARKER)
 
-            elif self.state == "trial_end":
-                self.draw_circle()
+            elif self.state == "break":
+                self.display_text(
+                    "Block done! Take a breather and press spacebar to resume when you feel ready.",
+                    FRONT_COL,
+                )
+                while not self.key_pressed("space"):
+                    pass
                 self.state = "arrow"
+
+            elif self.state == "trial_end":
+                # self.draw_circle()
+                self.display_text(":)", FRONT_COL)
+                self.state = "arrow" if self.trial not in self.break_trials else "break"
                 data = {
                     "trial": self.trial,
                     "instruction": self.current_class,
@@ -85,7 +93,7 @@ class DataGenerator(ExperimentGUI):
                     self.exit()
                     self.running = False
                 else:
-                    pygame.time.delay(1000)
+                    pygame.time.delay(2000)
 
             self.check_events()
 

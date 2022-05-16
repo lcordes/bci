@@ -14,7 +14,8 @@ FRONT_COL = (255, 255, 255)  # white
 BACK_COL = (0, 0, 0)  # black
 GREEN = (0, 255, 0)
 RED = (255, 0, 0)
-SHAPE_RADIUS = 15
+SHAPE_RADIUS = 20
+SHAPE_THICKNESS = 3
 PYGAME_KEYS = {"space": pygame.K_SPACE, "esc": pygame.K_ESCAPE}
 
 
@@ -86,6 +87,25 @@ class ExperimentGUI:
             center=self.center,
             radius=SHAPE_RADIUS // 2,
         )
+        pygame.display.update()
+
+    def draw_cross(self):
+        rad = SHAPE_RADIUS
+        thick = SHAPE_THICKNESS
+        self.window.fill(BACK_COL)
+        bars = [
+            pygame.Rect(
+                (self.center[0] - (thick // 2), (self.center[1] - (rad // 2))),
+                (thick, rad),
+            ),
+            pygame.Rect(
+                (self.center[0] - (rad // 2), (self.center[1] - (thick // 2))),
+                (rad, thick),
+            ),
+        ]
+
+        for bar in bars:
+            pygame.draw.rect(self.window, FRONT_COL, bar)
         pygame.display.update()
 
     def key_pressed(self, key):

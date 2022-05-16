@@ -67,7 +67,7 @@ class OpenBCIHandler:
         )
         data = self.board.get_current_board_data(n_samples)
 
-        # Disregard first row (time sample_channel) and then keep the next n_channel rows
+        # Disregard first row (packet num channel) and then keep the next n_channel rows
         data = data[1 : (n_channels + 1), :]
         data = np.expand_dims(data, axis=0)
         return data
