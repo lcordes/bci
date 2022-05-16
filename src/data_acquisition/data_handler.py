@@ -31,8 +31,9 @@ def get_channel_map():
 
 
 class OpenBCIHandler:
-    def __init__(self, board_type):
+    def __init__(self, board_type, recording_name=None):
         self.board_type = board_type
+        self.recording_name = recording_name
         params = BrainFlowInputParams()
         if board_type == "synthetic":
             self.board_id = BoardIds.SYNTHETIC_BOARD.value
@@ -132,8 +133,10 @@ class OpenBCIHandler:
         return metadata
 
     def save_to_file(self, recording):
-        file_path = f"{DATA_PATH}/recordings/Training_session_#{self.session_id}_{self.session_end}"
-        np.save(file_path, recording)
+        if self.recording_name:
+            file_path = f"{DATA_PATH}/recordings/{self.recording_name}"
+        else:
+            file_path = f"{DATA_PATH}/recordings/Training_session_#{self.session_id}_{self.session_end}"
 
         with h5py.File(f"{file_path}.hdf5", "w") as file:
             d = file.create_dataset("data", data=recording)

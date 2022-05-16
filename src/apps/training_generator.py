@@ -13,14 +13,14 @@ from data_acquisition.data_handler import OpenBCIHandler
 
 
 class DataGenerator(ExperimentGUI):
-    def __init__(self, keep_log, board_type):
+    def __init__(self, keep_log, board_type, name):
         super().__init__(keep_log)
         pygame.display.set_caption("Evaluator")
-        self.data_handler = OpenBCIHandler(board_type=board_type)
+        self.data_handler = OpenBCIHandler(board_type=board_type, recording_name=name)
         if self.data_handler.status == "no_connection":
             print(
                 "\n",
-                "No headset connection, use '--train synthetic' for simulated data",
+                "No headset connection, use '--board synthetic' for simulated data",
             )
             self.running = False
         # Create shuffled list containing n TRIALS_PER_CLASS examples of all classes
@@ -104,12 +104,23 @@ if __name__ == "__main__":
         "--board",
         dest="board_type",
         choices=["synthetic", "cyton", "daisy"],
-        const="daisy",
+        default="daisy",
         nargs="?",
         type=str,
         help="Use synthetic or cyton board instead of daisy.",
     )
+
+    parser.add_argument(
+        "--name",
+        const=None,
+        nargs="?",
+        type=str,
+        help="Give explicit name for recording file to be created (e.g. for testing).",
+    )
+
     args = parser.parse_args()
 
-    generator = DataGenerator(keep_log=args.log, board_type=args.board_type)
+    generator = DataGenerator(
+        keep_log=args.log, board_type=args.board_type, name=args.name
+    )
     generator.run()
