@@ -49,9 +49,16 @@ def get_data(recording_name, n_channels):
     eeg_channels = board_info["eeg_channels"]
     marker_channel = board_info["marker_channel"]
     marker_data = trials[marker_channel, :].flatten()
+    marker_data = np.where(
+        marker_data == 9, 0, marker_data
+    )  # TODO use marker 9 as trial end when creating epochs
     eeg_data = trials[eeg_channels, :]
     channel_names = list(metadata["channel_names"])
-    print(type(channel_names))
+
+    if n_channels < eeg_data.shape[0]:
+        eeg_data = eeg_data[:n_channels, :]
+        channel_names = channel_names[:8]
+
     return eeg_data, marker_data, channel_names, sampling_rate
 
 

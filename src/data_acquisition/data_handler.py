@@ -84,19 +84,6 @@ class OpenBCIHandler:
     def get_channel_info(self):
         return self.board.get_board_descr(self.board_id)
 
-    def save_and_exit(self):
-        """Get all session data from buffer and save to file"""
-        session_time = datetime.now().strftime("%d-%m-%Y_%H:%M:%S")
-        data = self.board.get_board_data()
-        self.board.stop_stream()
-        self.board.release_session()
-
-        # Append board_id info to recording
-        board_id_row = np.full((1, data.shape[1]), self.board_id)
-        data = np.append(data, board_id_row, axis=0)
-
-        np.save(f"{DATA_PATH}/recordings/Live_session_{session_time}", data)
-
     def save_trial(self):
         """Get and remove current data from the buffer after every trial"""
         data = self.board.get_board_data()
