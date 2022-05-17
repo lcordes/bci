@@ -13,22 +13,28 @@ from data_acquisition.data_handler import OpenBCIHandler
 
 
 class DataGenerator(ExperimentGUI):
-    def __init__(self, keep_log, board_type, name):
+    def __init__(self, keep_log, board_type, name, testing):
         super().__init__(keep_log)
         pygame.display.set_caption("Evaluator")
+        self.testing = testing
         self.data_handler = OpenBCIHandler(board_type=board_type, recording_name=name)
+        if not self.testing:
+            self.data_handler.load_demographics()
         if self.data_handler.status == "no_connection":
             print(
                 "\n",
                 "No headset connection, use '--board synthetic' for simulated data",
             )
             self.running = False
+        elif self.data_handler.status == "invalid_demographics":
+            print("Couldn't load demographics information.")
+            self.running = False
+
         # Create shuffled list containing n TRIALS_PER_CLASS examples of all classes
         self.trial_classes = CLASSES * TRIALS_PER_CLASS
         shuffle(self.trial_classes)
         total_trials = len(self.trial_classes)
         self.break_trials = [total_trials // 3, (total_trials // 3) * 2]
-        print(self.break_trials, "🦝")
 
     def exit(self):
         if self.log:
@@ -126,9 +132,18 @@ if __name__ == "__main__":
         help="Give explicit name for recording file to be created (e.g. for testing).",
     )
 
+    parser.add_argument(
+        "--testing",
+        help="Skip demographics import and practice trials.",
+        action="store_true",
+        default=False,
+    )
     args = parser.parse_args()
 
     generator = DataGenerator(
-        keep_log=args.log, board_type=args.board_type, name=args.name
+        keep_log=args.log,
+        board_type=args.board_type,
+        name=args.name,
+        testing=args.testing,
     )
     generator.run()

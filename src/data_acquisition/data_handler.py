@@ -51,13 +51,14 @@ class OpenBCIHandler:
         self.trial = 1
         self.session_id = randint(100000, 999999)
         self.channel_map = get_channel_map()
+        self.demographics = None
         try:
             self.board.prepare_session()
             self.board.start_stream()
             self.status = "connected"
         except:
             self.status = "no_connection"
-        self.session_start = datetime.now().strftime("%d-%m-%Y_%H:%M:%S")
+        self.session_start = datetime.now().strftime("%d-%m-%Y_%H-%M-%S")
 
     def get_current_data(self, n_channels, n_samples=None):
         n_samples = (
@@ -83,6 +84,21 @@ class OpenBCIHandler:
 
     def get_channel_info(self):
         return self.board.get_board_descr(self.board_id)
+
+    def load_demographics(self):
+        try:
+            with open(f"{DATA_PATH}/recordings/demographics.json", "r") as file:
+                self.demographics = json.load(file)
+
+            if "" in list(self.demographics.values()):
+                raise Exception
+
+            with open(f"{DATA_PATH}/recordings/demographics.json", "w") as file:
+                empty_dict = {key: "" for key in self.demographics.keys()}
+                json.dump(empty_dict, file)
+            print(self.demographics)
+        except Exception as e:
+            self.status = "invalid_demographics"
 
     def save_trial(self):
         """Get and remove current data from the buffer after every trial"""
@@ -117,6 +133,10 @@ class OpenBCIHandler:
         metadata["session_start"] = self.session_start
         metadata["session_end"] = self.session_end
         metadata["channel_names"] = list(self.channel_map.values())
+        if self.demographics:
+            for key in self.demographics.keys():
+                metadata[key] = self.demographics[key]
+
         return metadata
 
     def save_to_file(self, recording):
@@ -133,7 +153,7 @@ class OpenBCIHandler:
         """Stop data stream and attempt to merge trial data files"""
         self.board.stop_stream()
         self.board.release_session()
-        self.session_end = datetime.now().strftime("%d-%m-%Y_%H:%M:%S")
+        self.session_end = datetime.now().strftime("%d-%m-%Y_%H-%M-%S")
 
         try:
             recording = self.combine_trial_data()
