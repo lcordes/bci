@@ -43,12 +43,13 @@ class DataGenerator(ExperimentGUI):
             (n_trials // 3) * 2 + self.n_practice,
         ]
 
-    def exit(self):
+    def exit(self, quit_early=True):
         metadata = {
             "trials_per_class": TRIALS_PER_CLASS,
             "practice_trials": PRACTICE_TRIALS,
             "trials": self.trials,
             "break_trials": self.break_trials,
+            "quit_early": quit_early,
         }
         self.data_handler.add_metadata(metadata)
         self.data_handler.merge_trials_and_exit()
@@ -118,7 +119,7 @@ class DataGenerator(ExperimentGUI):
                 self.data_handler.save_trial()
 
                 if self.trial > len(self.trials):
-                    self.exit()
+                    self.exit(quit_early=False)
                     self.running = False
                     self.display_text(
                         "Experiment done! Thank you for your participation."

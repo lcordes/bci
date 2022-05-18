@@ -14,8 +14,6 @@ DATA_PATH = os.environ["DATA_PATH"]
 TRIAL_LENGTH = float(os.environ["TRIAL_LENGTH"])
 CHANNEL_MAP_PATH = os.environ["CHANNEL_MAP_PATH"]
 SERIAL_PORT = os.environ["SERIAL_PORT"]
-PRACTICE_TRIALS = int(os.environ["PRACTICE_TRIALS"])
-TRIALS_PER_CLASS = int(os.environ["TRIALS_PER_CLASS"])
 
 import sys
 from pathlib import Path
@@ -34,6 +32,7 @@ def get_channel_map():
 
 class OpenBCIHandler:
     def __init__(self, board_type, recording_name=None):
+        self.clean_tmp()
         self.board_type = board_type
         self.recording_name = recording_name
         params = BrainFlowInputParams()
@@ -50,7 +49,7 @@ class OpenBCIHandler:
 
         self.board = BoardShim(self.board_id, params)
         self.info = self.board.get_board_descr(self.board_id)
-        self.trial = 1
+        self.save_num = 0
         self.session_id = randint(100000, 999999)
         self.channel_map = get_channel_map()
         self.metadata = {}
@@ -115,31 +114,26 @@ class OpenBCIHandler:
     def save_trial(self):
         """Get and remove current data from the buffer after every trial"""
         data = self.board.get_board_data()
+        self.save_num += 1
         np.save(
-            f"{DATA_PATH}/recordings/tmp/#{self.session_id}_trial_{self.trial}", data
+            f"{DATA_PATH}/recordings/tmp/#{self.session_id}_trial_{self.save_num}", data
         )
-        self.trial += 1
 
     def combine_trial_data(self):
         """Merge individual trial data into one file and add descriptives"""
-        for trial in range(1, self.trial):
+        for save in range(1, self.save_num + 1):
             data = np.load(
-                f"{DATA_PATH}/recordings/tmp/#{self.session_id}_trial_{trial}.npy"
+                f"{DATA_PATH}/recordings/tmp/#{self.session_id}_trial_{save}.npy"
             )
 
-            # Append trial and board_id info to recording
-            trial_row = np.full((1, data.shape[1]), trial)
-            board_id_row = np.full((1, data.shape[1]), self.board_id)
-            data = np.append(data, trial_row, axis=0)
-            data = np.append(data, board_id_row, axis=0)
-            if trial == 1:
+            if save == 1:
                 recording = data
             else:
                 recording = np.append(recording, data, axis=1)
 
         if (
             "trials" in self.metadata
-            and not len(self.metadata["trials"]) == self.trial - 1
+            and not len(self.metadata["trials"]) == self.save_num
         ):
             print("Experiment and handler trials seem to be incongruent.")
         return recording
@@ -161,15 +155,23 @@ class OpenBCIHandler:
         self.board.release_session()
         self.session_end = datetime.now().strftime("%d-%m-%Y_%H-%M-%S")
 
-        try:
-            recording = self.combine_trial_data()
-            self.save_to_file(recording)
+        if self.save_num > 0:
+            try:
+                recording = self.combine_trial_data()
+                self.save_to_file(recording)
 
-            # TODO: delete tmp files here?
-            print(f"Successfully aggregated session #{self.session_id} recording file.")
-            print("Metadata:", self.metadata)
-        except Exception as e:
-            print("Couldn't aggregate tmp file, got error:", e)
+                # TODO: delete tmp files here?
+                print(
+                    f"Successfully aggregated session #{self.session_id} recording file."
+                )
+                print("Metadata:", self.metadata)
+            except Exception as e:
+                print("Couldn't aggregate tmp file, got error:", e)
+
+    def clean_tmp(self):
+        path = f"{DATA_PATH}/recordings/tmp/"
+        for tmp in Path(path).glob("*.npy"):
+            tmp.unlink()
 
 
 if __name__ == "__main__":
