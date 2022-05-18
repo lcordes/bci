@@ -50,8 +50,8 @@ def get_data(recording_name, n_channels):
     marker_channel = board_info["marker_channel"]
     marker_data = trials[marker_channel, :].flatten()
     marker_data = np.where(
-        marker_data == 9, 0, marker_data
-    )  # TODO use marker 9 as trial end when creating epochs
+        marker_data in [8, 9], 0, marker_data
+    )  # TODO use marker 9 as trial end when creating epochs, create check that practice trial are done correctly (marker 8)
     eeg_data = trials[eeg_channels, :]
     channel_names = list(metadata["channel_names"])
 

@@ -3,7 +3,10 @@ import os
 from dotenv import load_dotenv
 
 load_dotenv()
+PRACTICE_TRIALS = int(os.environ["PRACTICE_TRIALS"])
 TRIALS_PER_CLASS = int(os.environ["TRIALS_PER_CLASS"])
+PRACTICE_END_MARKER = int(os.environ["PRACTICE_END_MARKER"])
+
 TRIAL_END_MARKER = int(os.environ["TRIAL_END_MARKER"])
 IMAGERY_PERIOD = int(float(os.environ["IMAGERY_PERIOD"]) * 1000)
 CLASSES = os.environ["CLASSES"].split(",")
@@ -35,7 +38,7 @@ class ExperimentGUI:
         self.window.fill(BACK_COL)
         pygame.display.update()
 
-    def display_text(self, string, colour, loc=None, redraw=True):
+    def display_text(self, string, colour=FRONT_COL, loc=None, redraw=True):
         loc = self.center if not loc else loc
         text = self.font.render(string, True, colour)
         textRect = text.get_rect()
@@ -108,18 +111,21 @@ class ExperimentGUI:
             pygame.draw.rect(self.window, FRONT_COL, bar)
         pygame.display.update()
 
-    def key_pressed(self, key):
-        for event in pygame.event.get():
-            if event.type == pygame.KEYDOWN:
-                if event.key == PYGAME_KEYS[key]:
-                    return True
-        return False
+    def wait_for_space(self, text):
+        self.display_text(text)
+        while self.check_events() not in ["space", "quit"]:
+            pass
 
     def check_events(self):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.exit()
                 self.running = False
+                return "quit"
             elif event.type == pygame.KEYDOWN:
                 if event.key == PYGAME_KEYS["esc"]:
-                    self.pause = True
+                    self.state = "pause"
+                    return "pause"
+                elif event.key == PYGAME_KEYS["space"]:
+                    return "space"
+        return None

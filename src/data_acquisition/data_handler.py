@@ -13,7 +13,9 @@ SERIAL_PORT = os.environ["SERIAL_PORT"]
 DATA_PATH = os.environ["DATA_PATH"]
 TRIAL_LENGTH = float(os.environ["TRIAL_LENGTH"])
 CHANNEL_MAP_PATH = os.environ["CHANNEL_MAP_PATH"]
-
+SERIAL_PORT = os.environ["SERIAL_PORT"]
+PRACTICE_TRIALS = int(os.environ["PRACTICE_TRIALS"])
+TRIALS_PER_CLASS = int(os.environ["TRIALS_PER_CLASS"])
 
 import sys
 from pathlib import Path
@@ -51,7 +53,7 @@ class OpenBCIHandler:
         self.trial = 1
         self.session_id = randint(100000, 999999)
         self.channel_map = get_channel_map()
-        self.demographics = None
+        self.metadata = {}
         try:
             self.board.prepare_session()
             self.board.start_stream()
@@ -88,17 +90,27 @@ class OpenBCIHandler:
     def load_demographics(self):
         try:
             with open(f"{DATA_PATH}/recordings/demographics.json", "r") as file:
-                self.demographics = json.load(file)
-
-            if "" in list(self.demographics.values()):
+                demographics = json.load(file)
+                self.add_metadata(demographics)
+            if "" in list(demographics.values()):
                 raise Exception
 
             with open(f"{DATA_PATH}/recordings/demographics.json", "w") as file:
-                empty_dict = {key: "" for key in self.demographics.keys()}
+                empty_dict = {key: "" for key in demographics.keys()}
                 json.dump(empty_dict, file)
-            print(self.demographics)
-        except Exception as e:
+            print(demographics)
+        except:
             self.status = "invalid_demographics"
+
+    def compile_metadata(self):
+        self.metadata["board_id"] = self.board_id
+        self.metadata["session_id"] = self.session_id
+        self.metadata["session_start"] = self.session_start
+        self.metadata["session_end"] = self.session_end
+        self.metadata["channel_names"] = list(self.channel_map.values())
+
+    def add_metadata(self, data):
+        self.metadata.update(data)
 
     def save_trial(self):
         """Get and remove current data from the buffer after every trial"""
@@ -124,20 +136,13 @@ class OpenBCIHandler:
                 recording = data
             else:
                 recording = np.append(recording, data, axis=1)
+
+        if (
+            "trials" in self.metadata
+            and not len(self.metadata["trials"]) == self.trial - 1
+        ):
+            print("Experiment and handler trials seem to be incongruent.")
         return recording
-
-    def get_metadata(self):
-        metadata = {}
-        metadata["board_id"] = self.board_id
-        metadata["session_id"] = self.session_id
-        metadata["session_start"] = self.session_start
-        metadata["session_end"] = self.session_end
-        metadata["channel_names"] = list(self.channel_map.values())
-        if self.demographics:
-            for key in self.demographics.keys():
-                metadata[key] = self.demographics[key]
-
-        return metadata
 
     def save_to_file(self, recording):
         if self.recording_name:
@@ -145,9 +150,10 @@ class OpenBCIHandler:
         else:
             file_path = f"{DATA_PATH}/recordings/Training_session_#{self.session_id}_{self.session_end}"
 
+        self.compile_metadata()
         with h5py.File(f"{file_path}.hdf5", "w") as file:
             d = file.create_dataset("data", data=recording)
-            d.attrs.update(self.get_metadata())
+            d.attrs.update(self.metadata)
 
     def merge_trials_and_exit(self):
         """Stop data stream and attempt to merge trial data files"""
@@ -161,6 +167,7 @@ class OpenBCIHandler:
 
             # TODO: delete tmp files here?
             print(f"Successfully aggregated session #{self.session_id} recording file.")
+            print("Metadata:", self.metadata)
         except Exception as e:
             print("Couldn't aggregate tmp file, got error:", e)
 

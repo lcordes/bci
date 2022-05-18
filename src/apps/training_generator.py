@@ -31,14 +31,29 @@ class DataGenerator(ExperimentGUI):
             self.running = False
 
         # Create shuffled list containing n TRIALS_PER_CLASS examples of all classes
-        self.trial_classes = CLASSES * TRIALS_PER_CLASS
-        shuffle(self.trial_classes)
-        total_trials = len(self.trial_classes)
-        self.break_trials = [total_trials // 3, (total_trials // 3) * 2]
+        self.trials = CLASSES * TRIALS_PER_CLASS
+        self.practice_trials = CLASSES * PRACTICE_TRIALS
+        shuffle(self.practice_trials)
+        shuffle(self.trials)
+        n_trials = len(self.trials)
+        self.n_practice = len(self.practice_trials)
+        self.trials = self.practice_trials + self.trials
+        self.break_trials = [
+            n_trials // 3 + self.n_practice,
+            (n_trials // 3) * 2 + self.n_practice,
+        ]
 
     def exit(self):
+        metadata = {
+            "trials_per_class": TRIALS_PER_CLASS,
+            "practice_trials": PRACTICE_TRIALS,
+            "trials": self.trials,
+            "break_trials": self.break_trials,
+        }
+        self.data_handler.add_metadata(metadata)
+        self.data_handler.merge_trials_and_exit()
+
         if self.log:
-            self.data_handler.merge_trials_and_exit()
             if self.keep_log:
                 data = pd.DataFrame.from_dict(self.log)
                 session_time = datetime.now().strftime("%d-%m-%Y_%H:%M:%S")
@@ -46,22 +61,32 @@ class DataGenerator(ExperimentGUI):
 
     def run(self):
         while self.running:
-            if self.pause:
-                self.display_text("Press spacebar to resume", FRONT_COL)
-                while not self.key_pressed("space"):
-                    pass
+            if self.state == "pause":
+                self.wait_for_space("Press spacebar to resume.")
                 self.pause = False
                 self.state = "arrow"
 
             elif self.state == "start":
-                self.display_text("Start session with spacebar", FRONT_COL)
+                self.wait_for_space(
+                    "Welcome to the experiment! Press spacebar to begin the practice trials."
+                )
+                self.state = "arrow"
 
-                while not self.key_pressed("space"):
-                    pass
+            elif self.state == "practive_over":
+                self.data_handler.insert_marker(PRACTICE_END_MARKER)
+                self.wait_for_space(
+                    "You finished the practice trials! Press spacebar to begin with the experiment trials."
+                )
+                self.state = "arrow"
+
+            elif self.state == "break":
+                self.wait_for_space(
+                    "Block done! Take a breather and press spacebar to resume when you feel ready.",
+                )
                 self.state = "arrow"
 
             elif self.state == "arrow":
-                self.current_class = self.trial_classes[self.trial - 1]
+                self.current_class = self.trials[self.trial - 1]
                 self.draw_arrow()
                 self.state = "imagine"
                 pygame.time.delay(2000)
@@ -73,19 +98,16 @@ class DataGenerator(ExperimentGUI):
                 pygame.time.delay(IMAGERY_PERIOD)
                 self.data_handler.insert_marker(TRIAL_END_MARKER)
 
-            elif self.state == "break":
-                self.display_text(
-                    "Block done! Take a breather and press spacebar to resume when you feel ready.",
-                    FRONT_COL,
-                )
-                while not self.key_pressed("space"):
-                    pass
-                self.state = "arrow"
-
             elif self.state == "trial_end":
-                # self.draw_circle()
-                self.display_text(":)", FRONT_COL)
-                self.state = "arrow" if self.trial not in self.break_trials else "break"
+                self.draw_circle()
+                # self.display_text(":)", FRONT_COL)
+                if self.trial == self.n_practice and self.n_practice > 0:
+                    self.state = "practive_over"
+                elif self.trial in self.break_trials:
+                    self.state = "break"
+                else:
+                    self.state = "arrow"
+
                 data = {
                     "trial": self.trial,
                     "instruction": self.current_class,
@@ -95,11 +117,14 @@ class DataGenerator(ExperimentGUI):
                 self.trial += 1
                 self.data_handler.save_trial()
 
-                if self.trial > len(self.trial_classes):
+                if self.trial > len(self.trials):
                     self.exit()
                     self.running = False
-                else:
-                    pygame.time.delay(2000)
+                    self.display_text(
+                        "Experiment done! Thank you for your participation."
+                    )
+
+                pygame.time.delay(2000)
 
             self.check_events()
 
