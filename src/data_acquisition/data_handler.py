@@ -132,8 +132,8 @@ class OpenBCIHandler:
                 recording = np.append(recording, data, axis=1)
 
         if (
-            "trials" in self.metadata
-            and not len(self.metadata["trials"]) == self.save_num
+            "trial_sequence" in self.metadata
+            and not len(self.metadata["trial_sequence"]) == self.save_num
         ):
             print("Experiment and handler trials seem to be incongruent.")
         return recording

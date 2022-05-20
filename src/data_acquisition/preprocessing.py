@@ -21,6 +21,8 @@ DATA_PATH = os.environ["DATA_PATH"]
 SERIAL_PORT = os.environ["SERIAL_PORT"]
 TRIAL_LENGTH = float(os.environ["TRIAL_LENGTH"])
 TRIAL_OFFSET = float(os.environ["TRIAL_OFFSET"])
+PRACTICE_END_MARKER = int(os.environ["PRACTICE_END_MARKER"])
+TRIAL_END_MARKER = int(os.environ["TRIAL_END_MARKER"])
 
 
 def get_data(recording_name, n_channels):
@@ -48,9 +50,14 @@ def get_data(recording_name, n_channels):
     sampling_rate = board_info["sampling_rate"]
     eeg_channels = board_info["eeg_channels"]
     marker_channel = board_info["marker_channel"]
+
+    # Disregard practice trials
+    practice_end = np.where(trials[marker_channel, :] == PRACTICE_END_MARKER)[0][0]
+    trials = trials[:, (practice_end + 1) :]
+
     marker_data = trials[marker_channel, :].flatten()
     marker_data = np.where(
-        marker_data in [8, 9], 0, marker_data
+        marker_data == TRIAL_END_MARKER, 0, marker_data
     )  # TODO use marker 9 as trial end when creating epochs, create check that practice trial are done correctly (marker 8)
     eeg_data = trials[eeg_channels, :]
     channel_names = list(metadata["channel_names"])

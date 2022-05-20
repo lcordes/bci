@@ -14,12 +14,10 @@ from data_acquisition.data_handler import OpenBCIHandler
 
 class DataGenerator(ExperimentGUI):
     def __init__(self, keep_log, board_type, name, testing):
-        super().__init__(keep_log)
+        super().__init__(keep_log, fullscreen=(not testing))
         pygame.display.set_caption("Evaluator")
         self.testing = testing
         self.data_handler = OpenBCIHandler(board_type=board_type, recording_name=name)
-        if not self.testing:
-            self.data_handler.load_demographics()
         if self.data_handler.status == "no_connection":
             print(
                 "\n",
@@ -47,7 +45,7 @@ class DataGenerator(ExperimentGUI):
         metadata = {
             "trials_per_class": TRIALS_PER_CLASS,
             "practice_trials": PRACTICE_TRIALS,
-            "trials": self.trials,
+            "trial_sequence": self.trials,
             "break_trials": self.break_trials,
             "quit_early": quit_early,
         }
@@ -65,26 +63,39 @@ class DataGenerator(ExperimentGUI):
             if self.state == "pause":
                 self.wait_for_space("Press spacebar to resume.")
                 self.pause = False
-                self.state = "arrow"
+                self.state = "fixdot"
 
             elif self.state == "start":
                 self.wait_for_space(
                     "Welcome to the experiment! Press spacebar to begin the practice trials."
                 )
-                self.state = "arrow"
+                self.state = "fixdot" if self.testing else "survey"
+
+            elif self.state == "survey":
+                for category in ["participant number", "age", "gender", "nationality"]:
+                    response = self.display_text_input(
+                        f"Please enter your {category} and confirm with enter:"
+                    )
+                    self.data_handler.add_metadata({category: response})
+                self.state = "fixdot"
 
             elif self.state == "practive_over":
                 self.data_handler.insert_marker(PRACTICE_END_MARKER)
                 self.wait_for_space(
                     "You finished the practice trials! Press spacebar to begin with the experiment trials."
                 )
-                self.state = "arrow"
+                self.state = "fixdot"
 
             elif self.state == "break":
                 self.wait_for_space(
                     "Block done! Take a breather and press spacebar to resume when you feel ready.",
                 )
+                self.state = "fixdot"
+
+            elif self.state == "fixdot":
+                self.draw_circle()
                 self.state = "arrow"
+                pygame.time.delay(1000)
 
             elif self.state == "arrow":
                 self.current_class = self.trials[self.trial - 1]
@@ -100,14 +111,13 @@ class DataGenerator(ExperimentGUI):
                 self.data_handler.insert_marker(TRIAL_END_MARKER)
 
             elif self.state == "trial_end":
-                self.draw_circle()
-                # self.display_text(":)", FRONT_COL)
+                self.display_text(":)")
                 if self.trial == self.n_practice and self.n_practice > 0:
                     self.state = "practive_over"
                 elif self.trial in self.break_trials:
                     self.state = "break"
                 else:
-                    self.state = "arrow"
+                    self.state = "fixdot"
 
                 data = {
                     "trial": self.trial,

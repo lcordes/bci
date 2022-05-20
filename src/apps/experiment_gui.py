@@ -23,10 +23,14 @@ PYGAME_KEYS = {"space": pygame.K_SPACE, "esc": pygame.K_ESCAPE}
 
 
 class ExperimentGUI:
-    def __init__(self, keep_log):
+    def __init__(self, keep_log, fullscreen=True):
         pygame.init()
         self.keep_log = keep_log
-        self.window = pygame.display.set_mode((X_SIZE, Y_SIZE))
+        self.window = (
+            pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+            if fullscreen
+            else pygame.display.set_mode((X_SIZE, Y_SIZE))
+        )
         self.center = (X_SIZE // 2, Y_SIZE // 2)
         self.state = "start"
         self.font = pygame.font.Font("freesansbold.ttf", 26)
@@ -46,7 +50,23 @@ class ExperimentGUI:
         if redraw:
             self.window.fill(BACK_COL)
         self.window.blit(text, textRect)
-        pygame.display.update()
+        pygame.display.flip()
+        # pygame.display.update()
+
+    def display_text_input(self, instructions):
+        self.display_text(instructions, loc=(self.center[0], self.center[1] - 30))
+        input_string = ""
+        finished = False
+        while not finished:
+            finished, update = self.update_input(input_string)
+            if not input_string == update:
+                input_string = update
+                self.display_text(
+                    instructions, loc=(self.center[0], self.center[1] - 30)
+                )
+                self.display_text(input_string, redraw=False)
+            pygame.time.delay(1)
+        return input_string
 
     def display_feedback(self, probs):
         # Determine feedback color per marker
@@ -88,7 +108,7 @@ class ExperimentGUI:
             self.window,
             FRONT_COL,
             center=self.center,
-            radius=SHAPE_RADIUS // 2,
+            radius=SHAPE_RADIUS // 3,
         )
         pygame.display.update()
 
@@ -129,3 +149,20 @@ class ExperimentGUI:
                 elif event.key == PYGAME_KEYS["space"]:
                     return "space"
         return None
+
+    def update_input(self, input_string):
+        finished = False
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pass
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_RETURN:
+                    if not input_string == "":
+                        finished = True
+                elif event.key == pygame.K_BACKSPACE:
+                    input_string = input_string[:-1]
+                else:
+                    input_string += event.unicode
+
+        return finished, input_string

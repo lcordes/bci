@@ -1,6 +1,7 @@
 import argparse
 import sys
 from pathlib import Path
+from tracemalloc import start
 
 parent_dir = str(Path(__file__).parents[1].resolve())
 sys.path.append(parent_dir)
@@ -61,21 +62,31 @@ if __name__ == "__main__":
     class_frequencies = np.asarray(np.unique(y, return_counts=True))
     print("Class frequencies:\n", class_frequencies)
     channels = ["CP1", "C3", "FC1", "Cz", "FC2", "C4", "CP2", "Fpz"]
-    pre.save_preprocessing_plots(model_name, channels, raw, filtered, epochs, bandpass)
+    # pre.save_preprocessing_plots(model_name, channels, raw, filtered, epochs, bandpass)
 
     # Train and save the extractor
     extractor = CSPExtractor()
     X_transformed = extractor.fit_transform(X, y)
     extractor.save_model(model_name)
-    extractor.visualize_csp(model_name)
+    # extractor.visualize_csp(model_name)
     print("Extractor trained and saved successfully.")
-    pre.plot_log_variance_2(X_transformed, y).savefig(
-        "comp_var.png"
-    )  # TODO Is this plot necessary?
+    # pre.plot_log_variance_2(X_transformed, y).savefig(
+    #   "comp_var.png"
+    # )  # TODO Is this plot necessary?
 
     # Train and save the classifier
     classifier = LDAClassifier()
     classifier.fit(X_transformed, y)
     classifier.save_model(model_name)
     print("Classifier trained and saved successfully.")
-    classifier.score_looc(X_transformed, y)
+
+    overall_acc = classifier.score_loocv(X_transformed, y)
+    print(X_transformed.shape, y.shape)
+    print(f"Overall loocv mean accuracy: {overall_acc}")
+
+    for block in range(1, 4):
+        block_len = len(y) // 3
+        start = (block - 1) * block_len
+        stop = block * block_len
+        block_acc = classifier.score_loocv(X_transformed[start:stop, :], y[start:stop])
+        print(f"Block {block} loocv mean accuracy: {block_acc}")
