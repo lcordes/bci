@@ -1,5 +1,5 @@
 # Utilities and Apps for Motor Imagery Prediction using a Brain Computer Interface.
-![example workflow](https://github.com/lcordes/bci/actions/workflows/run-tests.yml/badge.svg)
+![tests workflow](https://github.com/lcordes/bci/actions/workflows/run-tests.yml/badge.svg)
 
 ![Overview of the Pipeline](https://github.com/lcordes/bci/blob/main/architecture/pipeline.png)
 
