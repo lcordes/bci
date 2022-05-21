@@ -61,22 +61,29 @@ class DataGenerator(ExperimentGUI):
     def run(self):
         while self.running:
             if self.state == "pause":
-                self.wait_for_space("Press spacebar to resume.")
+                self.pause_menu()
                 self.pause = False
                 self.state = "fixdot"
 
             elif self.state == "start":
                 self.wait_for_space(
-                    "Welcome to the experiment! Press spacebar to begin the practice trials."
+                    "Welcome to the experiment! Please press spacebar to begin with a short questionnaire."
                 )
                 self.state = "fixdot" if self.testing else "survey"
 
             elif self.state == "survey":
                 for category in ["participant number", "age", "gender", "nationality"]:
-                    response = self.display_text_input(
-                        f"Please enter your {category} and confirm with enter:"
-                    )
-                    self.data_handler.add_metadata({category: response})
+                    if self.running:
+                        response = self.display_text_input(
+                            f"Please enter your {category} and confirm with enter:"
+                        )
+                        self.data_handler.add_metadata({category: response})
+                self.state = "start_practice"
+
+            elif self.state == "start_practice":
+                self.wait_for_space(
+                    "Thanks! Press spacebar to begin with the practice trials."
+                )
                 self.state = "fixdot"
 
             elif self.state == "practive_over":
@@ -95,9 +102,9 @@ class DataGenerator(ExperimentGUI):
             elif self.state == "fixdot":
                 self.draw_circle()
                 self.state = "arrow"
-                pygame.time.delay(1000)
 
             elif self.state == "arrow":
+                self.play_sound("beep_on.wav")
                 self.current_class = self.trials[self.trial - 1]
                 self.draw_arrow()
                 self.state = "imagine"
@@ -112,6 +119,8 @@ class DataGenerator(ExperimentGUI):
 
             elif self.state == "trial_end":
                 self.display_text(":)")
+                self.play_sound("beep_off.wav")
+
                 if self.trial == self.n_practice and self.n_practice > 0:
                     self.state = "practive_over"
                 elif self.trial in self.break_trials:
@@ -135,7 +144,7 @@ class DataGenerator(ExperimentGUI):
                         "Experiment done! Thank you for your participation."
                     )
 
-                pygame.time.delay(2000)
+                pygame.time.delay(3000)
 
             self.check_events()
 

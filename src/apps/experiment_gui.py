@@ -7,11 +7,10 @@ PRACTICE_TRIALS = int(os.environ["PRACTICE_TRIALS"])
 TRIALS_PER_CLASS = int(os.environ["TRIALS_PER_CLASS"])
 PRACTICE_END_MARKER = int(os.environ["PRACTICE_END_MARKER"])
 
+DATA_PATH = os.environ["DATA_PATH"]
 TRIAL_END_MARKER = int(os.environ["TRIAL_END_MARKER"])
 IMAGERY_PERIOD = int(float(os.environ["IMAGERY_PERIOD"]) * 1000)
 CLASSES = os.environ["CLASSES"].split(",")
-X_SIZE = int(os.environ["X_SIZE"])
-Y_SIZE = int(os.environ["Y_SIZE"])
 
 FRONT_COL = (255, 255, 255)  # white
 BACK_COL = (0, 0, 0)  # black
@@ -19,19 +18,25 @@ GREEN = (0, 255, 0)
 RED = (255, 0, 0)
 SHAPE_RADIUS = 20
 SHAPE_THICKNESS = 3
-PYGAME_KEYS = {"space": pygame.K_SPACE, "esc": pygame.K_ESCAPE}
+PYGAME_KEYS = {
+    "space": pygame.K_SPACE,
+    "esc": pygame.K_ESCAPE,
+    "q": pygame.K_q,
+}
 
 
 class ExperimentGUI:
     def __init__(self, keep_log, fullscreen=True):
         pygame.init()
         self.keep_log = keep_log
-        self.window = (
-            pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
-            if fullscreen
-            else pygame.display.set_mode((X_SIZE, Y_SIZE))
-        )
-        self.center = (X_SIZE // 2, Y_SIZE // 2)
+        if fullscreen:
+            self.window = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+            self.x_size, self.y_size = self.window.get_size()
+        else:
+            self.x_size = int(os.environ["X_SIZE"])
+            self.y_size = int(os.environ["Y_SIZE"])
+            self.window = pygame.display.set_mode((self.x_size, self.y_size))
+        self.center = (self.x_size // 2, self.y_size // 2)
         self.state = "start"
         self.font = pygame.font.Font("freesansbold.ttf", 26)
         self.trial = 1
@@ -76,7 +81,7 @@ class ExperimentGUI:
             cols[CLASSES.index(self.command)] = RED
 
         # Get location per marker
-        offset = Y_SIZE // 10
+        offset = self.y_size // 10
         locs = [
             (self.center[0] - offset, self.center[1]),
             (self.center[0] + offset, self.center[1]),
@@ -112,6 +117,11 @@ class ExperimentGUI:
         )
         pygame.display.update()
 
+    def play_sound(self, file):
+        sound = pygame.mixer.Sound(f"{DATA_PATH}/assets/sounds/{file}")
+        sound.play()
+        pygame.time.delay(2000)
+
     def draw_cross(self):
         rad = SHAPE_RADIUS
         thick = SHAPE_THICKNESS
@@ -136,6 +146,17 @@ class ExperimentGUI:
         while self.check_events() not in ["space", "quit"]:
             pass
 
+    def pause_menu(self):
+        self.display_text("Experiment paused. Continue with spacebar and quit with q.")
+        while True:
+            event = self.check_events()
+            if event == "space":
+                break
+            elif event == "quit":
+                self.exit()
+                self.running = False
+                break
+
     def check_events(self):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -148,6 +169,9 @@ class ExperimentGUI:
                     return "pause"
                 elif event.key == PYGAME_KEYS["space"]:
                     return "space"
+
+                elif event.key == PYGAME_KEYS["q"]:
+                    return "quit"
         return None
 
     def update_input(self, input_string):
@@ -162,6 +186,9 @@ class ExperimentGUI:
                         finished = True
                 elif event.key == pygame.K_BACKSPACE:
                     input_string = input_string[:-1]
+                elif event.key == PYGAME_KEYS["esc"]:
+                    finished = True
+                    self.running = False
                 else:
                     input_string += event.unicode
 
