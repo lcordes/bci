@@ -1,4 +1,5 @@
 import pygame
+from pygame.mixer import music
 import os
 from dotenv import load_dotenv
 
@@ -118,9 +119,11 @@ class ExperimentGUI:
         pygame.display.update()
 
     def play_sound(self, file):
-        sound = pygame.mixer.Sound(f"{DATA_PATH}/assets/sounds/{file}")
-        sound.play()
-        pygame.time.delay(2000)
+        music.load(f"{DATA_PATH}/assets/sounds/{file}")
+        music.set_volume(0.2)
+        music.play()
+        # while music.get_busy():
+        #     pass  # block while sound is playing
 
     def draw_cross(self):
         rad = SHAPE_RADIUS

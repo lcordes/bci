@@ -102,9 +102,11 @@ class DataGenerator(ExperimentGUI):
             elif self.state == "fixdot":
                 self.draw_circle()
                 self.state = "arrow"
+                pygame.time.delay(500)
+                self.play_sound("on_beep.wav")
+                pygame.time.delay(500)
 
             elif self.state == "arrow":
-                self.play_sound("beep_on.wav")
                 self.current_class = self.trials[self.trial - 1]
                 self.draw_arrow()
                 self.state = "imagine"
@@ -118,8 +120,9 @@ class DataGenerator(ExperimentGUI):
                 self.data_handler.insert_marker(TRIAL_END_MARKER)
 
             elif self.state == "trial_end":
+                self.play_sound("off_beep.wav")
+                pygame.time.delay(500)
                 self.display_text(":)")
-                self.play_sound("beep_off.wav")
 
                 if self.trial == self.n_practice and self.n_practice > 0:
                     self.state = "practive_over"
