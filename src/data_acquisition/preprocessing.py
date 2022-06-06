@@ -33,7 +33,7 @@ def get_data(recording_name, n_channels):
     Returns a training data set of shape (trials x channels x samples)
     and a corresponding set of labels with shape (trials).
     """
-    path = f"data/recordings/{recording_name}.hdf5"
+    path = f"data/recordings/participants/{recording_name}.hdf5"
     # trials = np.load(path)
     with h5py.File(path, "r") as file:
         trials = file["data"][()]
@@ -92,6 +92,24 @@ def epochs_from_raw(raw, marker_data, sampling_rate):
     )
     epochs = mne.Epochs(raw, event_arr, tmin=0, tmax=2, baseline=None, preload=True)
     return epochs
+
+
+def preprocess_recording(recording_name, model_info):
+    data, marker_data, channel_names, sampling_rate = get_data(
+        recording_name, model_info["n_channels"]
+    )
+    raw = raw_from_array(data, sampling_rate, channel_names)
+
+    filtered = filter_raw(
+        raw.copy(),
+        bandpass=model_info["bandpass"],
+        notch=model_info["notch"],
+        notch_width=model_info["notch_width"],
+    )
+    epochs = epochs_from_raw(filtered, marker_data, sampling_rate=sampling_rate)
+    X = epochs.get_data()
+    y = epochs.events[:, 2]
+    return X, y
 
 
 def railed_trials_count(epochs_dat):
@@ -175,27 +193,58 @@ def save_preprocessing_plots(name, channels, raw, filtered, epochs, bandpass):
 
 
 if __name__ == "__main__":
-    recording_name = "test"
-    bandpass = (8, 13)
+    # recording_name = "participants/lars45"
+    recording_name = "participants/lars45tap"
+    # recording_name = "participants/manon"
+    bandpass = (0.5, 40)
     notch = (25, 50)
     data, marker_data, channel_names, sampling_rate = get_data(
         recording_name, n_channels=8
     )
+    data = data * 1e-6
     raw = raw_from_array(data, sampling_rate=sampling_rate, channel_names=channel_names)
+
     filtered = filter_raw(raw.copy(), bandpass=bandpass, notch=notch, notch_width=0.5)
+
+    marker_indices = np.argwhere(marker_data).flatten()
+    marker_labels = marker_data[marker_indices].astype(int)
+    onsets = (marker_indices + sampling_rate * TRIAL_OFFSET).astype(int)
+
+    event_arr = np.column_stack(
+        (onsets, np.zeros(len(marker_labels), dtype=int), marker_labels)
+    )
+    # filtered.plot(
+    #     events=event_arr,
+    #     event_color=({1: "r", 2: "g", 3: "b"}),
+    #     block=True,
+    #     duration=10,
+    #     start=100,
+    #     scalings={"eeg": 2e-4},
+    # )
+
+    event_id = {"1": 1, "2": 2, "3": 3}
     epochs = epochs_from_raw(filtered, marker_data, sampling_rate=sampling_rate)
-    railed_trials_count(epochs.get_data())
+    col_dict = {"1": "r", "2": "g", "3": "b"}
+    epoch_colors = [[col_dict[str(marker)]] * 8 for marker in marker_labels]
+    mne.viz.plot_epochs(
+        epochs,
+        epoch_colors=epoch_colors,
+        block=True,
+        scalings={"eeg": 2e-4},
+    )
 
-    # Look at filtering effect
-    raw.plot_psd()
-    filtered.plot_psd()
+    # railed_trials_count(epochs.get_data())
 
-    # Visualize power spectrum between labels
-    channels = ["CP1", "C3", "FC1", "Cz", "FC2", "C4", "CP2", "Fpz"]
-    plot_psd_per_label(epochs, channels, freq_window=bandpass)
-    plt.show()
+    # # Look at filtering effect
+    # raw.plot_psd()
+    # filtered.plot_psd()
 
-    # Visualize log variance between labels
-    channels = ["CP1", "C3", "FC1", "Cz", "FC2", "C4", "CP2", "Fpz"]
-    plot_log_variance(epochs, channels)
-    plt.show()
+    # # Visualize power spectrum between labels
+    # channels = ["CP1", "C3", "FC1", "Cz", "FC2", "C4", "CP2", "Fpz"]
+    # plot_psd_per_label(epochs, channels, freq_window=bandpass)
+    # plt.show()
+
+    # # Visualize log variance between labels
+    # channels = ["CP1", "C3", "FC1", "Cz", "FC2", "C4", "CP2", "Fpz"]
+    # plot_log_variance(epochs, channels)
+    # plt.show()

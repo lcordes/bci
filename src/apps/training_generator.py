@@ -66,13 +66,16 @@ class DataGenerator(ExperimentGUI):
                 self.state = "fixdot"
 
             elif self.state == "start":
-                self.wait_for_space(
+                intro = (
                     "Welcome to the experiment! Please press spacebar to begin with a short questionnaire."
+                    if not self.data_handler.get_board_id() == -1
+                    else "Warning: Collection synthetic data. Start with spacebar."
                 )
+                self.wait_for_space(intro)
                 self.state = "fixdot" if self.testing else "survey"
 
             elif self.state == "survey":
-                for category in ["participant number", "age", "gender", "nationality"]:
+                for category in ["participant number", "age", "gender"]:
                     if self.running:
                         response = self.display_text_input(
                             f"Please enter your {category} and confirm with enter:"
@@ -81,9 +84,21 @@ class DataGenerator(ExperimentGUI):
                 self.state = "start_practice"
 
             elif self.state == "start_practice":
-                self.wait_for_space(
-                    "Thanks! Press spacebar to begin with the practice trials."
-                )
+                lines = [
+                    "In the following trials you will be shown an arrow which indicates what movement you should imagine.",
+                    "",
+                    "Pointing left: squeeze with your left hand",
+                    "Pointing right: squeeze with your right hand",
+                    "Pointing down: curl your feet",
+                    "",
+                    "You will then be presented with a fixation cross.",
+                    "While it is on screen, keep your eyes centered on the cross and perform the imagined movement.",
+                    "Once it disappears you can relax until the next trial starts.",
+                    "",
+                    "We will now begin with some practical trials to get you familiar with the experiment.",
+                    "Press spacebar to continue.",
+                ]
+                self.wait_for_space(lines)
                 self.state = "fixdot"
 
             elif self.state == "practive_over":
@@ -102,7 +117,7 @@ class DataGenerator(ExperimentGUI):
             elif self.state == "fixdot":
                 self.draw_circle()
                 self.state = "arrow"
-                pygame.time.delay(500)
+                pygame.time.delay(1000)
                 self.play_sound("on_beep.wav")
                 pygame.time.delay(500)
 
@@ -122,7 +137,7 @@ class DataGenerator(ExperimentGUI):
             elif self.state == "trial_end":
                 self.play_sound("off_beep.wav")
                 pygame.time.delay(500)
-                self.display_text(":)")
+                self.display_text("")
 
                 if self.trial == self.n_practice and self.n_practice > 0:
                     self.state = "practive_over"
@@ -147,7 +162,7 @@ class DataGenerator(ExperimentGUI):
                         "Experiment done! Thank you for your participation."
                     )
 
-                pygame.time.delay(3000)
+                pygame.time.delay(2500)
 
             self.check_events()
 

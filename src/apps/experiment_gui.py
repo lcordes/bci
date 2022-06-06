@@ -17,8 +17,9 @@ FRONT_COL = (255, 255, 255)  # white
 BACK_COL = (0, 0, 0)  # black
 GREEN = (0, 255, 0)
 RED = (255, 0, 0)
-SHAPE_RADIUS = 20
-SHAPE_THICKNESS = 3
+SHAPE_RADIUS = 40
+LINE_SPACE = 45
+SHAPE_THICKNESS = 6
 PYGAME_KEYS = {
     "space": pygame.K_SPACE,
     "esc": pygame.K_ESCAPE,
@@ -59,6 +60,15 @@ class ExperimentGUI:
         pygame.display.flip()
         # pygame.display.update()
 
+    def display_multiline(self, lines, colour=FRONT_COL):
+
+        first_line_y = self.center[1] - (len(lines) // 2) * LINE_SPACE
+
+        for i, line in enumerate(lines):
+            loc = (self.center[0], first_line_y + i * LINE_SPACE)
+            redraw = True if i == 0 else False
+            self.display_text(line, loc=loc, redraw=redraw)
+
     def display_text_input(self, instructions):
         self.display_text(instructions, loc=(self.center[0], self.center[1] - 30))
         input_string = ""
@@ -95,7 +105,7 @@ class ExperimentGUI:
     def draw_arrow(self):
         cx = self.center[0]  # center x-a-xis
         cy = self.center[1]  # center x-a-xis
-        l = SHAPE_RADIUS
+        l = SHAPE_RADIUS * 2 // 3
         s = l * 5 // 6
         if self.current_class == "down":
             points = [(cx, cy + l), (cx - s, cy - l), (cx + s, cy - l)]
@@ -114,7 +124,7 @@ class ExperimentGUI:
             self.window,
             FRONT_COL,
             center=self.center,
-            radius=SHAPE_RADIUS // 3,
+            radius=SHAPE_RADIUS // 4,
         )
         pygame.display.update()
 
@@ -145,7 +155,10 @@ class ExperimentGUI:
         pygame.display.update()
 
     def wait_for_space(self, text):
-        self.display_text(text)
+        if isinstance(text, list):
+            self.display_multiline(text)
+        else:
+            self.display_text(text)
         while self.check_events() not in ["space", "quit"]:
             pass
 

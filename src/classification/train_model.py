@@ -1,13 +1,13 @@
 import argparse
 import sys
 from pathlib import Path
-from tracemalloc import start
 
 parent_dir = str(Path(__file__).parents[1].resolve())
 sys.path.append(parent_dir)
 from feature_extraction.extractors import CSPExtractor
-from data_acquisition import preprocessing as pre
-from classifiers import LDAClassifier
+from data_acquisition.preprocessing import preprocess_recording
+from classifiers import LDAClassifier, RFClassifier, SVMClassifier
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 import numpy as np
 import os
 from dotenv import load_dotenv
@@ -23,6 +23,35 @@ DATA_PATH = os.environ["DATA_PATH"]
 SERIAL_PORT = os.environ["SERIAL_PORT"]
 TRIAL_LENGTH = float(os.environ["TRIAL_LENGTH"])
 TRIAL_OFFSET = float(os.environ["TRIAL_OFFSET"])
+
+
+def create_model_info(
+    model_name, n_channels=8, bandpass=(8, 13), notch=(25, 50), notch_width=0.5
+):
+    return {
+        "name": model_name,
+        "n_channels": n_channels,
+        "bandpass": bandpass,
+        "notch": notch,
+        "notch_width": notch_width,
+    }
+
+
+def train_model(recording_name, model_info=None, type="LDA"):
+    model_info = model_info if model_info else create_model_info(recording_name)
+    X, y = preprocess_recording(recording_name, model_info)
+    extractor = CSPExtractor()
+    X_transformed = extractor.fit_transform(X, y)
+    extractor.save_model(model_info["name"])
+    classifier = (
+        SVMClassifier()
+        if type == "SVM"
+        else RFClassifier()
+        if type == "RF"
+        else LDAClassifier()
+    )
+    classifier.fit(X_transformed, y)
+    classifier.save_model(model_info)
 
 
 if __name__ == "__main__":
@@ -41,52 +70,29 @@ if __name__ == "__main__":
         default=False,
     )
     args = parser.parse_args()
-    recording_name = args.recording_name.replace(".pkl", "")
+    recording_name = args.recording_name.replace(".hdf5", "")
     model_name = args.model_name.replace(".pkl", "")
 
-    # Preprocess the trial data
+    # Set model parameters
     n_channels = 16 if args.daisy else 8
-    data, marker_data, channel_names, sampling_rate = pre.get_data(
-        recording_name, n_channels
-    )
-    raw = pre.raw_from_array(data, sampling_rate, channel_names)
-    bandpass = (8, 13)
-    notch = (25, 50)
-    filtered = pre.filter_raw(
-        raw.copy(), bandpass=bandpass, notch=notch, notch_width=0.5
-    )
-    epochs = pre.epochs_from_raw(filtered, marker_data, sampling_rate=sampling_rate)
-    X = epochs.get_data()
-    y = epochs.events[:, 2]
+    model_info = create_model_info(model_name, n_channels=n_channels)
 
+    X, y = preprocess_recording(recording_name, model_info)
     class_frequencies = np.asarray(np.unique(y, return_counts=True))
     print("Class frequencies:\n", class_frequencies)
-    channels = ["CP1", "C3", "FC1", "Cz", "FC2", "C4", "CP2", "Fpz"]
-    # pre.save_preprocessing_plots(model_name, channels, raw, filtered, epochs, bandpass)
 
     # Train and save the extractor
     extractor = CSPExtractor()
     X_transformed = extractor.fit_transform(X, y)
-    extractor.save_model(model_name)
-    # extractor.visualize_csp(model_name)
+    extractor.save_model(model_info["name"])
     print("Extractor trained and saved successfully.")
-    # pre.plot_log_variance_2(X_transformed, y).savefig(
-    #   "comp_var.png"
-    # )  # TODO Is this plot necessary?
 
     # Train and save the classifier
     classifier = LDAClassifier()
     classifier.fit(X_transformed, y)
-    classifier.save_model(model_name)
+    classifier.save_model(model_info)
     print("Classifier trained and saved successfully.")
 
-    overall_acc = classifier.score_loocv(X_transformed, y)
-    print(X_transformed.shape, y.shape)
-    print(f"Overall loocv mean accuracy: {overall_acc}")
+    from test_model import loocv_per_block
 
-    for block in range(1, 4):
-        block_len = len(y) // 3
-        start = (block - 1) * block_len
-        stop = block * block_len
-        block_acc = classifier.score_loocv(X_transformed[start:stop, :], y[start:stop])
-        print(f"Block {block} loocv mean accuracy: {block_acc}")
+    loocv_per_block(LinearDiscriminantAnalysis, X_transformed, y)
