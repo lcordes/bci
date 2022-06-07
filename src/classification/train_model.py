@@ -37,19 +37,13 @@ def create_model_info(
     }
 
 
-def train_model(recording_name, model_info=None, type="LDA"):
+def train_model(recording_name, constructor, model_info=None):
     model_info = model_info if model_info else create_model_info(recording_name)
     X, y = preprocess_recording(recording_name, model_info)
     extractor = CSPExtractor()
     X_transformed = extractor.fit_transform(X, y)
     extractor.save_model(model_info["name"])
-    classifier = (
-        SVMClassifier()
-        if type == "SVM"
-        else RFClassifier()
-        if type == "RF"
-        else LDAClassifier()
-    )
+    classifier = constructor()
     classifier.fit(X_transformed, y)
     classifier.save_model(model_info)
 

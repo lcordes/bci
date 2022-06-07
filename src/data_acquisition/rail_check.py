@@ -19,7 +19,7 @@ RAILED_THRESHOLD = 100000  # 187000
 
 def check_railed(data):
     """Take a data array of shape (channels x samples) and check whether channels are railed
-    (i.e. values stay the same for more than half of the samples). Returns two lists containing the indices of railed and
+    (i.e. values are above a threshold for more than half of the samples). Returns two lists containing the indices of railed and
     non-railed channels."""
     railed = []
     not_railed = []

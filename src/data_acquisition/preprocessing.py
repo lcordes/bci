@@ -33,7 +33,7 @@ def get_data(recording_name, n_channels):
     Returns a training data set of shape (trials x channels x samples)
     and a corresponding set of labels with shape (trials).
     """
-    path = f"data/recordings/participants/{recording_name}.hdf5"
+    path = f"{DATA_PATH}/recordings/participants/{recording_name}.hdf5"
     # trials = np.load(path)
     with h5py.File(path, "r") as file:
         trials = file["data"][()]
@@ -109,17 +109,29 @@ def preprocess_recording(recording_name, model_info):
     epochs = epochs_from_raw(filtered, marker_data, sampling_rate=sampling_rate)
     X = epochs.get_data()
     y = epochs.events[:, 2]
+
+    # Rail diagnostics
+    raw_epochs = epochs_from_raw(raw, marker_data, sampling_rate=sampling_rate)
+    railed_trials_count(raw_epochs.get_data(), recording_name)
+
     return X, y
 
 
-def railed_trials_count(epochs_dat):
+def railed_trials_count(epochs_dat, name=None):
     n_epochs = epochs_dat.shape[0]
     railed = []
     for trial in range(n_epochs):
         _, railed_nums = check_railed(epochs_dat[trial, :, :])
         railed.extend(railed_nums)
     channels, counts = np.unique(railed, return_counts=True)
-    print(channels, counts)
+    if name:
+        print(f"Recording {name}")
+    print("Number of railed trials:")
+    if len(channels) == 0:
+        print("None")
+    for i in range(len(channels)):
+        print(f"Channel {channels[i]+1}: {counts[i]}")
+    print("\n")
 
 
 def plot_psd_per_label(epochs, channels, freq_window):
