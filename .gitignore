@@ -3,6 +3,7 @@ legacy code
 *.drawio
 *.csv
 *.npy
+*.zip
 *test.py
 *exploration.py
 *.pkl

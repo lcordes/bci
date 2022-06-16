@@ -109,9 +109,12 @@ class DataGenerator(ExperimentGUI):
                 self.state = "fixdot"
 
             elif self.state == "break":
-                self.wait_for_space(
-                    "Block done! Take a breather and press spacebar to resume when you feel ready.",
-                )
+                if self.trial == self.break_trials[-1] + 1:
+                    text = "Block done! Relax a bit and then start the last block by pressing spacebar."
+                else:
+                    text = "Block done! Take a breather and press spacebar to resume when you feel ready."
+
+                self.wait_for_space(text)
                 self.state = "fixdot"
 
             elif self.state == "fixdot":

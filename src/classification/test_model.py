@@ -5,6 +5,7 @@ parent_dir = str(Path(__file__).parents[1].resolve())
 sys.path.append(parent_dir)
 from feature_extraction.extractors import CSPExtractor
 from data_acquisition.preprocessing import preprocess_recording
+from data_acquisition.rail_check import railed_heatmap
 from classifiers import LDAClassifier, SVMClassifier, RFClassifier
 from train_model import train_model, create_model_info
 import numpy as np
@@ -68,7 +69,7 @@ def test_model(recording_name, model_name, model_constructor):
     return np.round(acc, 3)
 
 
-def test_heatmap(participants, constructor):
+def test_heatmap(participants, constructor, ax):
     data = np.zeros((len(participants) + 1, len(participants)))
     for row, model_name in enumerate(participants):
         train_model(model_name, constructor)
@@ -78,33 +79,38 @@ def test_heatmap(participants, constructor):
     for column, recording_name in enumerate(participants):
         data[len(participants), column] = score_loocv(recording_name, constructor)
 
-    fig, ax = plt.subplots(1, 1)
-
     # Show the tick labels
     ax.xaxis.set_tick_params(labeltop=True)
 
+    labels = [p.replace("Training_session_", "")[:7] for p in participants]
     # Hide the tick labels
     ax.xaxis.set_tick_params(labelbottom=False)
     map = sns.heatmap(
         data,
+        ax=ax,
         vmin=0,
         vmax=1,
         annot=True,
-        xticklabels=participants,
-        yticklabels=participants + ["LOOCV"],
+        xticklabels=labels,
+        yticklabels=labels + ["LOOCV"],
     )
-    plt.tight_layout()
-    plt.title(f"{constructor.__name__} Accuracy")
-    plt.xlabel("Recordings")
-    plt.ylabel("Models")
-    return map
+    ax.set_title(f"{constructor.__name__} Accuracy")
+    # plt.xlabel("Recordings")
+    # plt.ylabel("Models")
 
 
 if __name__ == "__main__":
     dir = Path(f"{DATA_PATH}/recordings/participants")
     participants = sorted([path.stem for path in dir.glob("*.hdf5")])
 
-    classifiers = [LDAClassifier, SVMClassifier, RFClassifier]
-    for classifier in classifiers:
-        heatmap = test_heatmap(participants, classifier)
-        plt.savefig(f"{classifier.__name__}_accuracy_results.png")
+    fig, _ = plt.subplots(2, 2, figsize=(12, 10))
+    axes = fig.axes
+
+    # classifiers = [LDAClassifier, SVMClassifier, RFClassifier]
+    # for i, classifier in enumerate(classifiers):
+    #     test_heatmap(participants, classifier, axes[i])
+    #     print(f"{classifier.__name__} results done.")
+
+    railed_heatmap(participants, axes[-1])
+    fig.tight_layout()
+    plt.savefig("Results.png", dpi=400)
