@@ -22,7 +22,7 @@ class BCIServer:
         )
         self.extractor = CSPExtractor()
         self.extractor.load_model(model_name)
-        self.n_channels = self.extractor.get_n_channels()
+        self.n_channels = 8  # TODO update this to load from model_info
         self.predictor = LDAClassifier()
         self.predictor.load_model(model_name)
         self.data_handler = OpenBCIHandler(board_type=board_type)

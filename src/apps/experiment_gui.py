@@ -132,8 +132,6 @@ class ExperimentGUI:
         music.load(f"{DATA_PATH}/assets/sounds/{file}")
         music.set_volume(0.2)
         music.play()
-        # while music.get_busy():
-        #     pass  # block while sound is playing
 
     def draw_cross(self):
         rad = SHAPE_RADIUS
