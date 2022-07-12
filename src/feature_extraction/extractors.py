@@ -31,20 +31,10 @@ class Extractor:
     def fit(self, X, y):
         self.model.fit(X, y)
         self.model.n_channels = X.shape[1]
-        assert self.model.n_channels in [
-            8,
-            16,
-            30,
-        ], "Extractor got invalid channel size"
 
     def fit_transform(self, X, y):
         transform = self.model.fit_transform(X, y)
         self.model.n_channels = X.shape[1]
-        assert self.model.n_channels in [
-            8,
-            16,
-            30,
-        ], "Extractor got invalid channel size"
         return transform
 
     def transform(self, X):

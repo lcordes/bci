@@ -81,7 +81,7 @@ def filter_raw(raw, bandpass=(0.1, 60), notch=(50), notch_width=50):
     return raw
 
 
-def epochs_from_raw(raw, marker_data, sampling_rate):
+def epochs_from_raw(raw, marker_data, sampling_rate, tmax):
     marker_indices = np.argwhere(marker_data).flatten()
     marker_labels = marker_data[marker_indices].astype(int)
     onsets = (marker_indices + sampling_rate * TRIAL_OFFSET).astype(int)
@@ -89,25 +89,35 @@ def epochs_from_raw(raw, marker_data, sampling_rate):
     event_arr = np.column_stack(
         (onsets, np.zeros(len(marker_labels), dtype=int), marker_labels)
     )
-    epochs = mne.Epochs(raw, event_arr, tmin=0, tmax=2, baseline=None, preload=True)
+    epochs = mne.Epochs(raw, event_arr, tmin=0, tmax=tmax, baseline=None, preload=True)
     return epochs
 
 
-def preprocess_recording(recording_name, model_info):
+def preprocess_recording(recording_name, config):
     data, marker_data, channel_names, sampling_rate = get_data(
-        recording_name, model_info["n_channels"]
+        recording_name, config["n_channels"]
     )
     raw = raw_from_array(data, sampling_rate, channel_names)
+    raw = raw.pick(config["channels"])
 
     filtered = filter_raw(
         raw.copy(),
-        bandpass=model_info["bandpass"],
-        notch=model_info["notch"],
-        notch_width=model_info["notch_width"],
+        bandpass=config["bandpass"],
+        notch=config["notch"],
+        notch_width=config["notch_width"],
     )
-    epochs = epochs_from_raw(filtered, marker_data, sampling_rate=sampling_rate)
+    epochs = epochs_from_raw(
+        filtered,
+        marker_data,
+        sampling_rate=sampling_rate,
+        tmax=config["imagery_window"],
+    )
     X = epochs.get_data()
     y = epochs.events[:, 2]
+
+    if config["n_classes"] == 2:
+        X = X[y != 3, :, :]
+        y = y[y != 3]
 
     return X, y
 
@@ -144,7 +154,9 @@ def plot_log_variance(epochs, channels):
 
     bar_dat = np.zeros((dat.shape[1], 3))
     for label in [1, 2, 3]:
-        bar_dat[:, label - 1] = np.mean(log_var[labels == label, :], axis=0)
+        bar_dat[:, label - 1] = np.mean(
+            log_var[labels == label, :], axis=0
+        )  # check if axis correct
 
     fig, ax = plt.subplots(3, 3, sharey=True)
     for idx, channel in enumerate(channels):
@@ -184,9 +196,9 @@ def save_preprocessing_plots(name, channels, raw, filtered, epochs, bandpass):
 
 if __name__ == "__main__":
     dir = Path(f"{DATA_PATH}/recordings/participants")
-    participants = sorted([path.stem for path in dir.glob("*.hdf5")])
+    users = sorted([path.stem for path in dir.glob("*.hdf5")])
 
-    for recording_name in participants:
+    for recording_name in users:
         bandpass = (0.5, 40)
         notch = (25, 50)
         data, marker_data, channel_names, sampling_rate = get_data(

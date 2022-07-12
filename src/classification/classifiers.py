@@ -23,9 +23,9 @@ class Classifier:
         except:
             print("Classifier model not found.")
 
-    def save_model(self, model_info):
-        self.model.model_info = model_info
-        name = model_info["name"]
+    def save_model(self, config):
+        self.model.config = config
+        name = config["name"]
         path = f"{DATA_PATH}/models/{self.type}/{name}.pkl"
         joblib.dump(self.model, path)
 

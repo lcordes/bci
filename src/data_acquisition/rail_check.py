@@ -48,9 +48,9 @@ def railed_trials_count(epochs_dat):
     return channels, counts
 
 
-def railed_heatmap(participants, ax, n_channels=8):
-    railed_dat = np.zeros((len(participants), n_channels))
-    for i, name in enumerate(participants):
+def railed_heatmap(users, ax, n_channels=8):
+    railed_dat = np.zeros((len(users), n_channels))
+    for i, name in enumerate(users):
         data, marker_data, channel_names, sampling_rate = pre.get_data(name, n_channels)
         raw = pre.raw_from_array(data, sampling_rate, channel_names)
         epochs = pre.epochs_from_raw(raw, marker_data, sampling_rate=sampling_rate)
@@ -64,7 +64,7 @@ def railed_heatmap(participants, ax, n_channels=8):
     # Hide the tick labels
     ax.xaxis.set_tick_params(labelbottom=False)
     x_ticks = list(range(1, n_channels + 1))
-    labels = [p.replace("Training_session_", "")[:7] for p in participants]
+    labels = [u.replace("Training_session_", "")[:7] for u in users]
 
     sns.heatmap(
         railed_dat,
