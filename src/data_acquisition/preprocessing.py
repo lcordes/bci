@@ -1,6 +1,7 @@
 import numpy as np
 import os
 import mne
+from mne.filter import notch_filter, filter_data
 import h5py
 from dotenv import load_dotenv
 from brainflow.board_shim import BoardShim
@@ -75,10 +76,14 @@ def raw_from_array(data, sampling_rate, channel_names):
     return raw
 
 
-def filter_raw(raw, bandpass=(0.1, 60), notch=(50), notch_width=50):
-    raw.notch_filter(notch, notch_widths=notch_width)
-    raw.filter(l_freq=bandpass[0], h_freq=bandpass[1])
-    return raw
+def filter_array(array, sampling_rate, bandpass, notch, notch_width=50):
+    array = notch_filter(
+        array, sampling_rate, freqs=notch, notch_widths=notch_width, verbose="WARNING"
+    )
+    array = filter_data(
+        array, sampling_rate, l_freq=bandpass[0], h_freq=bandpass[1], verbose="WARNING"
+    )
+    return array
 
 
 def epochs_from_raw(raw, marker_data, sampling_rate, tmax):
@@ -93,21 +98,41 @@ def epochs_from_raw(raw, marker_data, sampling_rate, tmax):
     return epochs
 
 
-def preprocess_recording(recording_name, config):
-    data, marker_data, channel_names, sampling_rate = get_data(
-        recording_name, config["n_channels"]
-    )
-    raw = raw_from_array(data, sampling_rate, channel_names)
-    raw = raw.pick(config["channels"])
+def preprocess_trial(data, sampling_rate, config):
+    # Gets 10s of data, with trial onset at 5s, plus 0.5 offset
 
-    filtered = filter_raw(
-        raw.copy(),
+    filtered = filter_array(
+        data,
+        sampling_rate,
         bandpass=config["bandpass"],
         notch=config["notch"],
         notch_width=config["notch_width"],
     )
+    start = int(5.5 * sampling_rate)
+    end = start + config["imagery_window"] * sampling_rate
+    interest_period = filtered[:, :, start:end]
+
+    return interest_period
+
+
+def preprocess_recording(recording_name, config):
+    data, marker_data, channel_names, sampling_rate = get_data(
+        recording_name, config["n_channels"]
+    )
+
+    filtered = filter_array(
+        data,
+        sampling_rate,
+        bandpass=config["bandpass"],
+        notch=config["notch"],
+        notch_width=config["notch_width"],
+    )
+
+    raw = raw_from_array(filtered, sampling_rate, channel_names)
+    raw = raw.pick(config["channels"])
+
     epochs = epochs_from_raw(
-        filtered,
+        raw,
         marker_data,
         sampling_rate=sampling_rate,
         tmax=config["imagery_window"],
@@ -205,12 +230,19 @@ if __name__ == "__main__":
             recording_name, n_channels=8
         )
         data = data * 1e-6
-        raw = raw_from_array(
-            data, sampling_rate=sampling_rate, channel_names=channel_names
+
+        filtered = filter_array(
+            data,
+            sampling_rate,
+            bandpass=bandpass,
+            notch=notch,
+            notch_width=0.5,
         )
 
-        filtered = filter_raw(
-            raw.copy(), bandpass=bandpass, notch=notch, notch_width=0.5
+        raw = raw_from_array(filtered, sampling_rate, channel_names)
+
+        raw = raw_from_array(
+            data, sampling_rate=sampling_rate, channel_names=channel_names
         )
 
         marker_indices = np.argwhere(marker_data).flatten()
@@ -220,7 +252,7 @@ if __name__ == "__main__":
         event_arr = np.column_stack(
             (onsets, np.zeros(len(marker_labels), dtype=int), marker_labels)
         )
-        # filtered.plot(
+        # raw.plot(
         #     events=event_arr,
         #     event_color=({1: "r", 2: "g", 3: "b"}),
         #     block=True,
@@ -230,7 +262,7 @@ if __name__ == "__main__":
         # )
 
         event_id = {"1": 1, "2": 2, "3": 3}
-        epochs = epochs_from_raw(filtered, marker_data, sampling_rate=sampling_rate)
+        epochs = epochs_from_raw(raw, marker_data, sampling_rate=sampling_rate)
         col_dict = {"1": "r", "2": "g", "3": "b"}
         epoch_colors = [[col_dict[str(marker)]] * 8 for marker in marker_labels]
         mne.viz.plot_epochs(

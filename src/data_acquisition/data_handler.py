@@ -2,16 +2,23 @@ from time import sleep
 from datetime import datetime
 from brainflow.board_shim import BoardShim, BrainFlowInputParams, BoardIds
 import numpy as np
-from random import randint
+from random import randint, choice
 import json
 import os
 from dotenv import load_dotenv
+import sys
+from pathlib import Path
+
+parent_dir = str(Path(__file__).parents[1].resolve())
+sys.path.append(parent_dir)
+from data_acquisition.preprocessing import get_data
 import h5py
 
 load_dotenv()
 SERIAL_PORT = os.environ["SERIAL_PORT"]
 DATA_PATH = os.environ["DATA_PATH"]
 TRIAL_LENGTH = float(os.environ["TRIAL_LENGTH"])
+TRIAL_OFFSET = float(os.environ["TRIAL_OFFSET"])
 CHANNEL_MAP_PATH = os.environ["CHANNEL_MAP_PATH"]
 SERIAL_PORT = os.environ["SERIAL_PORT"]
 
@@ -28,6 +35,29 @@ def get_channel_map():
     with open(CHANNEL_MAP_PATH, "r") as file:
         channel_map = json.load(file)
     return channel_map
+
+
+class RecordingHandler:
+    def __init__(self, recording_name, config):
+        self.config = config
+        self.recording, marker_data, _, self.sampling_rate = get_data(
+            recording_name, config["n_channels"]
+        )
+        self.trial_onsets = {}
+        for num, label in zip([1, 2, 3], ["left", "right", "down"]):
+            self.trial_onsets[label] = list(
+                np.argwhere(marker_data == num).flatten().astype(int)
+            )
+
+    def get_current_data(self, label):
+        trial_half = self.sampling_rate * 5  # 10s of data for filter
+        onset = choice(self.trial_onsets[label])
+        data = self.recording[:, (onset - trial_half) : (onset + trial_half)]
+        data = np.expand_dims(data, axis=0)
+        return data
+
+    def get_sampling_rate(self):
+        return self.sampling_rate
 
 
 class OpenBCIHandler:
@@ -61,12 +91,8 @@ class OpenBCIHandler:
             self.status = "no_connection"
         self.session_start = datetime.now().strftime("%d-%m-%Y_%H-%M-%S")
 
-    def get_current_data(self, n_channels, n_samples=None):
-        n_samples = (
-            int(self.info["sampling_rate"] * TRIAL_LENGTH)
-            if not n_samples
-            else n_samples
-        )
+    def get_current_data(self, n_channels):
+        n_samples = int(self.info["sampling_rate"] * 10)
         data = self.board.get_current_board_data(n_samples)
 
         # Disregard first row (packet num channel) and then keep the next n_channel rows

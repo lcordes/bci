@@ -9,14 +9,14 @@ class Client:
         self.socket.connect("tcp://localhost:5555")
         self.status = self.server_probe()
 
-    def request_command(self):
-        self.socket.send(b"Command")
+    def request_command(self, label):
+        self.socket.send(label.encode("UTF-8"))
 
     def get_command(self, no_block=0):
         return self.socket.recv(no_block).decode("UTF-8")
 
     def server_probe(self):
-        self.request_command()
+        self.request_command("left")
         sleep(0.1)
         try:
             self.get_command(no_block=1)
@@ -35,7 +35,7 @@ class Server:
         self.socket.bind("tcp://*:5555")
 
     def await_request(self):
-        _ = self.socket.recv()
+        return self.socket.recv().decode("UTF-8")
 
     def send_response(self, string):
         self.socket.send(string.encode("utf-8"))

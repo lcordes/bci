@@ -29,17 +29,19 @@ def create_config(
     channels=["CP1", "C3", "FC1", "Cz", "FC2", "C4", "CP2", "Fpz"],
     n_channels=8,
     n_classes=3,
-    imagery_window=2,
+    imagery_window=4,
+    csp_components=8,
     bandpass=(8, 13),
     notch=(25, 50),
     notch_width=0.5,
 ):
     return {
-        "name": model_name,
+        "model_name": model_name,
         "n_channels": n_channels,
         "channels": channels,
         "n_classes": n_classes,
         "imagery_window": imagery_window,
+        "csp_components": csp_components,
         "bandpass": bandpass,
         "notch": notch,
         "notch_width": notch_width,
@@ -48,7 +50,6 @@ def create_config(
 
 def train_model(recording, constructor, config):
     if isinstance(recording, list):
-        config["name"] = "merged_model"
         X, y = preprocess_recording(recording[0], config)
         for r in recording:
             if r != recording[0]:
@@ -56,11 +57,10 @@ def train_model(recording, constructor, config):
                 X = np.append(X, new_X, axis=0)
                 y = np.append(y, new_y, axis=0)
     else:
-        config["name"] = recording
         X, y = preprocess_recording(recording, config)
-    extractor = CSPExtractor()
+    extractor = CSPExtractor(config)
     X_transformed = extractor.fit_transform(X, y)
-    extractor.save_model(config["name"])
+    extractor.save_model(config["model_name"])
     classifier = constructor()
     classifier.fit(X_transformed, y)
     classifier.save_model(config)
@@ -96,7 +96,7 @@ if __name__ == "__main__":
     # Train and save the extractor
     extractor = CSPExtractor()
     X_transformed = extractor.fit_transform(X, y)
-    extractor.save_model(config["name"])
+    extractor.save_model(config["model_name"])
     print("Extractor trained and saved successfully.")
 
     # Train and save the classifier

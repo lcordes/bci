@@ -1,5 +1,7 @@
 import sys
 from pathlib import Path
+import json
+
 
 parent_dir = str(Path(__file__).parents[1].resolve())
 sys.path.append(parent_dir)
@@ -12,7 +14,7 @@ import numpy as np
 import os
 from dotenv import load_dotenv
 from sklearn.model_selection import LeaveOneOut
-from sklearn.metrics import confusion_matrix, f1_score
+from sklearn.metrics import confusion_matrix, f1_score, matthews_corrcoef
 import seaborn as sns
 from matplotlib import pyplot as plt
 import mne
@@ -27,8 +29,6 @@ TRIAL_OFFSET = float(os.environ["TRIAL_OFFSET"])
 
 
 def test_model(test_recording, model_name, model_constructor):
-    if isinstance(model_name, list):
-        model_name = "merged_model"
     extractor = CSPExtractor()
     extractor.load_model(model_name)
     predictor = model_constructor()
@@ -36,7 +36,7 @@ def test_model(test_recording, model_name, model_constructor):
     config = predictor.model.config
 
     X, y = preprocess_recording(test_recording, config)
-    X_transformed = extractor.fit_transform(X, y)
+    X_transformed = extractor.transform(X)
     acc = predictor.score(X_transformed, y)
     return np.round(acc, 3)
 
@@ -54,7 +54,7 @@ def test_heatmap(users, constructor, ax):
     # Show the tick labels
     ax.xaxis.set_tick_params(labeltop=True)
 
-    labels = [p.replace("Training_session_", "")[:7] for p in users]
+    labels = [u.replace("Training_session_", "")[:7] for u in users]
     # Hide the tick labels
     ax.xaxis.set_tick_params(labelbottom=False)
     map = sns.heatmap(
@@ -71,7 +71,7 @@ def test_heatmap(users, constructor, ax):
     # plt.ylabel("Models")
 
 
-def score_loocv(recording_name, constructor, config, conf_mat=False):
+def score_loocv(recording_name, constructor, config):
     extractor = CSPExtractor()
     extractor.load_model(recording_name)
     X, y = preprocess_recording(recording_name, config)
@@ -91,7 +91,6 @@ def score_loocv(recording_name, constructor, config, conf_mat=False):
         y_true.append(y_test)
         y_pred.append(clf.predict(X_test))
         scores.append(clf.score(X_test, y_test))
-    from sklearn.metrics import matthews_corrcoef
 
     return {
         "acc": np.round(np.mean(scores), 3),
@@ -115,12 +114,13 @@ def loocv_per_block(constructor, X, y):
 
 def loocv_plot(users, constructors, ax, config):
     data = np.zeros((len(classifiers), len(users)))
-    conf_matrices = [np.zeros((3, 3)) for _ in range(3)]
+    classes = config["n_classes"]
+    conf_matrices = [np.zeros((classes, classes)) for _ in range(3)]
 
     for row, constructor in enumerate(constructors):
         for column, recording_name in enumerate(users):
             metrics = score_loocv(recording_name, constructor, config)
-            data[row, column] = metrics["f1"]
+            data[row, column] = metrics["acc"]
             conf_matrices[row] = conf_matrices[row] + metrics["conf"]
             print(f"Classifier {row+1} user {column+1} done")
 
@@ -179,7 +179,7 @@ def get_best_train_user(users, test_user, classifier, config, included):
             if included:
                 train_user = [train_user] + included
             train_model(train_user, classifier, config)
-            accs[idx] = test_model(test_user, train_user, classifier)
+            accs[idx] = test_model(test_user, config["model_name"], classifier)
     return users[np.argmax(accs)], accs[np.argmax(accs)]
 
 
@@ -229,11 +229,44 @@ if __name__ == "__main__":
     # classifiers = [LDAClassifier, SVMClassifier, RFClassifier]
     classifiers = [LDAClassifier, SVMClassifier]
 
-    config = create_config(
-        imagery_window=4,
-    )
-    title = "F1 score, imagery_window=4"
+    config = create_config()
+    title = "Accuracy"  # TODO autogenerate title based on non-default config params
 
     # save_heatmap_plot(users, classifiers, config, title)
+
     # save_loocv_plot(users, classifiers, config, title)
-    forward_selection(users, SVMClassifier, config)
+
+    # forward_selection(users, SVMClassifier, config)
+
+    user_16 = ["Training_session_#646445_30-06-2022_14-29-27"]
+
+    def get_optimal(clf):
+        data = {"users": [], "classifier": clf.__name__}
+        for user in user_16:  # users:
+            config = create_config(model_name="optimal_16_LDA")
+            optimal = get_optimal_train_users(users, user, clf, config)
+            train_model(optimal, clf, config)
+            acc = test_model(user, config["model_name"], clf)
+            print("Final acc:", config["model_name"], acc)
+            new_user = {"user": user, "acc": acc, "optimal": optimal}
+            data["users"].append(new_user)
+
+        # with open(f"{clf.__name__}_optimal.json", "w") as f:
+        #   json.dump(data, f)
+
+    def check_optimal(file):
+        with open(file) as f:
+            data = json.load(f)
+            acc = np.round(np.mean([user["acc"] for user in data["users"]]), 3)
+            std = np.round(np.std([user["acc"] for user in data["users"]]), 3)
+            print(f"Mean accuracy: {acc}, std: {std}")
+            included = []
+            for user in data["users"]:
+                included.extend(user["optimal"])
+            n_included = [included.count(u["user"]) for u in data["users"]]
+
+            for i in np.flip(np.argsort(n_included)):
+                print(f"User {i+1}: {n_included[i]} inclusions")
+
+    # check_optimal("LDAClassifier_optimal.json")
+    get_optimal(LDAClassifier)

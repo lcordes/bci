@@ -49,9 +49,13 @@ class Extractor:
 
 
 class CSPExtractor(Extractor):
-    def __init__(self, space=None):
+    def __init__(self, config=None, space=None):
         self.type = "CSP"
-        self.model = CSP(n_components=2)  # TODO make n_comps dependent on data
+        self.model = (
+            CSP(n_components=config["csp_components"])
+            if config
+            else CSP(n_components=8)
+        )
         if space:
             self.model.set_params(
                 transform_into=space

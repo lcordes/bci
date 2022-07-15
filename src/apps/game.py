@@ -40,9 +40,7 @@ class Sandbox:
             if self.client.connected():
                 print("Connected to BCI server")
             else:
-                print(
-                    "Couldn't connect to BCI server. Did you start it in client mode (--client)?"
-                )
+                print("Couldn't connect to BCI server")
 
         pygame.init()
         self.window = pygame.display.set_mode((self.x_size, self.y_size))
@@ -127,15 +125,16 @@ class Sandbox:
     def run(self):
         self.redraw_screen()
         while True:
-            self.play_sound("on_beep.wav")
+            # self.play_sound("on_beep.wav")
             self.start_round()
             pygame.time.delay(IMAGERY_WINDOW)
-            self.play_sound("off_beep.wav")
+            # self.play_sound("off_beep.wav")
 
             if self.keyboard:
                 event = self.get_key()
             else:
-                self.client.request_command()
+                command = getattr(self, "target", "")
+                self.client.request_command(command)
                 event_probs = self.client.get_command()
                 event = self.get_event(event_probs)
 
@@ -232,7 +231,8 @@ class Shooter(Sandbox):
 
         self.shape_size = self.x_size // 10
         self.player_center = (self.x_size // 2, self.y_size // 4)
-        self.points = 0
+        self.hits = 0
+        self.total = 0
 
         self.target_pos = {
             "left": (self.player_center[0] - self.x_size // 3, self.player_center[1]),
@@ -247,10 +247,11 @@ class Shooter(Sandbox):
         if target:
             self.draw_circle(pos=self.target_pos[self.target], colour=colour)
 
-        self.display_text(
-            f"Points: {self.points}",
-            loc=(int(self.x_size * 0.8), int(self.y_size * 0.9)),
-        )
+        if self.total > 0:
+            self.display_text(
+                f"Hits: {self.hits}/{self.total}",
+                loc=(int(self.x_size * 0.8), int(self.y_size * 0.9)),
+            )
 
     def display_text(self, string, loc, colour=BLACK):
         loc = self.center if not loc else loc
@@ -330,9 +331,10 @@ class Shooter(Sandbox):
 
         if event == self.target:
             colour = GREEN
-            self.points += 10
+            self.hits += 1
         else:
             colour = RED
+        self.total += 1
         self.redraw_screen(direction=event)
         self.draw_target(colour=colour)
         pygame.time.delay(2000)

@@ -25,7 +25,7 @@ class Classifier:
 
     def save_model(self, config):
         self.model.config = config
-        name = config["name"]
+        name = config["model_name"]
         path = f"{DATA_PATH}/models/{self.type}/{name}.pkl"
         joblib.dump(self.model, path)
 
@@ -62,4 +62,4 @@ class SVMClassifier(Classifier):
     def __init__(self):
         self.type = "SVM"
         self.model_constructor = SVC
-        self.model = self.model_constructor()
+        self.model = self.model_constructor(probability=True)
