@@ -135,8 +135,8 @@ class Sandbox:
             else:
                 command = getattr(self, "target", "")
                 self.client.request_command(command)
-                event_probs = self.client.get_command()
-                event = self.get_event(event_probs)
+                event_string = self.client.get_command()
+                event = event_string.split(";")[0]
 
             pygame.time.delay(1000)
             if event in ["left", "right", "down"]:

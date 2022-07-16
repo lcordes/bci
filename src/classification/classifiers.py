@@ -1,10 +1,10 @@
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.neural_network import MLPClassifier as MLP
 from sklearn.svm import SVC
 import joblib
 import os
 from dotenv import load_dotenv
-import numpy as np
 
 load_dotenv()
 DATA_PATH = os.environ["DATA_PATH"]
@@ -13,7 +13,6 @@ DATA_PATH = os.environ["DATA_PATH"]
 class Classifier:
     def __init__(self):
         self.model = None
-        self.model_constructor = None
         self.type = "default"
 
     def load_model(self, model_name):
@@ -22,8 +21,10 @@ class Classifier:
             self.model = joblib.load(path)
         except:
             print("Classifier model not found.")
+        self.type = self.model.config["model_type"]
 
     def save_model(self, config):
+        config["model_type"] = self.type
         self.model.config = config
         name = config["model_name"]
         path = f"{DATA_PATH}/models/{self.type}/{name}.pkl"
@@ -47,19 +48,22 @@ class Classifier:
 class LDAClassifier(Classifier):
     def __init__(self):
         self.type = "LDA"
-        self.model_constructor = LinearDiscriminantAnalysis
-        self.model = self.model_constructor()
+        self.model = LinearDiscriminantAnalysis()
 
 
 class RFClassifier(Classifier):
     def __init__(self):
         self.type = "RF"
-        self.model_constructor = RandomForestClassifier
-        self.model = self.model_constructor()
+        self.model = RandomForestClassifier()
 
 
 class SVMClassifier(Classifier):
     def __init__(self):
         self.type = "SVM"
-        self.model_constructor = SVC
-        self.model = self.model_constructor(probability=True)
+        self.model = SVC(probability=True)
+
+
+class MLPClassifier(Classifier):
+    def __init__(self):
+        self.type = "MLP"
+        self.model = MLP(max_iter=500)

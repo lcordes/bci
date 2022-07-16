@@ -1,4 +1,3 @@
-from time import sleep
 from datetime import datetime
 from brainflow.board_shim import BoardShim, BrainFlowInputParams, BoardIds
 import numpy as np
@@ -17,16 +16,9 @@ import h5py
 load_dotenv()
 SERIAL_PORT = os.environ["SERIAL_PORT"]
 DATA_PATH = os.environ["DATA_PATH"]
-TRIAL_LENGTH = float(os.environ["TRIAL_LENGTH"])
-TRIAL_OFFSET = float(os.environ["TRIAL_OFFSET"])
 CHANNEL_MAP_PATH = os.environ["CHANNEL_MAP_PATH"]
-SERIAL_PORT = os.environ["SERIAL_PORT"]
-
-import sys
-from pathlib import Path
-
-parent_dir = str(Path(__file__).parents[1].resolve())
-sys.path.append(parent_dir)
+IMAGERY_PERIOD = float(os.environ["IMAGERY_PERIOD"])
+ONLINE_FILTER_LENGTH = os.environ["ONLINE_FILTER_LENGTH"]
 
 BoardShim.enable_dev_board_logger()
 
@@ -50,9 +42,13 @@ class RecordingHandler:
             )
 
     def get_current_data(self, label):
-        trial_half = self.sampling_rate * 5  # 10s of data for filter
+        """Returns (ONLINE_FILTER_LENGTH) seconds of data of a randomly chosen trial
+        of the given label classm, with ONLINE_FILTER_LENGTH - IMAGERY_PERIOD giving the trial onset"""
+        upper = self.sampling_rate * IMAGERY_PERIOD
+        lower = self.sampling_rate * (ONLINE_FILTER_LENGTH - IMAGERY_PERIOD)
+
         onset = choice(self.trial_onsets[label])
-        data = self.recording[:, (onset - trial_half) : (onset + trial_half)]
+        data = self.recording[:, (onset - lower) : (onset + upper)]
         data = np.expand_dims(data, axis=0)
         return data
 
@@ -92,7 +88,7 @@ class OpenBCIHandler:
         self.session_start = datetime.now().strftime("%d-%m-%Y_%H-%M-%S")
 
     def get_current_data(self, n_channels):
-        n_samples = int(self.info["sampling_rate"] * 10)
+        n_samples = int(self.info["sampling_rate"] * ONLINE_FILTER_LENGTH)
         data = self.board.get_current_board_data(n_samples)
 
         # Disregard first row (packet num channel) and then keep the next n_channel rows
@@ -185,12 +181,9 @@ class OpenBCIHandler:
             try:
                 recording = self.combine_trial_data()
                 self.save_to_file(recording)
-
-                # TODO: delete tmp files here?
                 print(
                     f"Successfully aggregated session #{self.session_id} recording file."
                 )
-                print("Metadata:", self.metadata)
             except Exception as e:
                 print("Couldn't aggregate tmp file, got error:", e)
 
@@ -198,14 +191,3 @@ class OpenBCIHandler:
         path = f"{DATA_PATH}/recordings/tmp/"
         for tmp in Path(path).glob("*.npy"):
             tmp.unlink()
-
-
-if __name__ == "__main__":
-    handler = OpenBCIHandler(board_type="synthetic")
-
-    for i in range(5):
-        handler.insert_marker(i + 1)
-        sleep(1)
-        handler.save_trial()
-
-    handler.merge_trials_and_exit()

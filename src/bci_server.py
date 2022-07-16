@@ -4,26 +4,19 @@ from time import time
 from communication.client_server import Server
 from data_acquisition.data_handler import OpenBCIHandler, RecordingHandler
 from data_acquisition.preprocessing import preprocess_trial
-from feature_extraction.extractors import CSPExtractor
-from classification.classifiers import SVMClassifier, LDAClassifier
-import os
-from dotenv import load_dotenv
-
-load_dotenv()
-DATA_PATH = os.environ["DATA_PATH"]
-TIMESTEP = 2  # in s
+from feature_extraction.extractors import Extractor
+from classification.classifiers import Classifier
 
 
 class BCIServer:
     def __init__(self, board_type, model_name, recording):
-        self.extractor = CSPExtractor()
+        self.recording = recording
+        self.extractor = Extractor()
         self.extractor.load_model(model_name)
-        self.predictor = LDAClassifier()
+        self.predictor = Classifier()
         self.predictor.load_model(model_name)
         self.config = self.predictor.model.config
-        self.n_channels = self.config["n_channels"]
 
-        self.recording = recording
         if self.recording:
             self.data_handler = RecordingHandler(
                 recording_name="Training_session_#646445_30-06-2022_14-29-27",
@@ -40,7 +33,7 @@ class BCIServer:
         if self.recording:
             raw = self.data_handler.get_current_data(label=command)
         else:
-            raw = self.data_handler.get_current_data(self.n_channels)
+            raw = self.data_handler.get_current_data(self.config["n_channels"])
         processed = preprocess_trial(raw, self.sampling_rate, self.config)
         features = self.extractor.transform(processed)
         probs = self.predictor.predict_probs(features)
@@ -67,7 +60,7 @@ class BCIServer:
 
             start = time()
             probs, event = self.get_prediction(command)
-            self.server.send_response(f"{probs[0]};{probs[1]};{probs[2]}")
+            self.server.send_response(f"{event};{probs[0]};{probs[1]};{probs[2]}")
             delta = np.round(time() - start, 3)
             print(f"Processing time: {delta} seconds\n")
 

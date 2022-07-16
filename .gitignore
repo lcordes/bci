@@ -4,8 +4,7 @@ legacy code
 *.csv
 *.npy
 *.zip
-*test.py
-*exploration.py
+*scratchpad.py
 *.pkl
 *.png
 *.hdf5

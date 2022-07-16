@@ -5,16 +5,17 @@ CHANNEL_MAP_PATH=architecture/channel_map.json
 # Experiment setup
 PRACTICE_TRIALS=2
 TRIALS_PER_CLASS=45
-TRIAL_LENGTH=2
 TRIAL_OFFSET=0.5
 IMAGERY_PERIOD=5
 PRACTICE_END_MARKER=8
 TRIAL_END_MARKER=9
 CLASSES=left,right,down
 
-# GUI Aspect ratio
+# GUI aspect ratio
 X_SIZE = 1440
 Y_SIZE = 810
 
+# BCI Server settings
+ONLINE_FILTER_LENGTH = 10
 # Headset specific variables
 SERIAL_PORT=/dev/ttyUSB0 # serial port path on linux-based systems
