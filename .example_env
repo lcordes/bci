@@ -1,6 +1,10 @@
 # Paths
 DATA_PATH=data
+RESULTS_PATH=results
 CHANNEL_MAP_PATH=architecture/channel_map.json
+
+# Experiment data URL
+DATA_URL=https://files.osf.io/
 
 # Experiment setup
 PRACTICE_TRIALS=2

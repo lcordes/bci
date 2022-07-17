@@ -2,17 +2,17 @@ import numpy as np
 from random import choice
 from data_acquisition.data_handler import RecordingHandler
 from data_acquisition.preprocessing import preprocess_trial, preprocess_recording
-from feature_extraction.extractors import CSPExtractor
-from classification.classifiers import SVMClassifier, LDAClassifier
+from feature_extraction.extractors import Extractor
+from classification.classifiers import Classifier
 from sklearn.metrics import confusion_matrix
 
 
 model_name = "optimal_16_LDA"
-recording = "Training_session_#646445_30-06-2022_14-29-27"
+recording = "u16"
 
-extractor = CSPExtractor()
+extractor = Extractor()
 extractor.load_model(model_name)
-predictor = LDAClassifier()  # Try LDA instead
+predictor = Classifier()
 predictor.load_model(model_name)
 config = predictor.model.config
 data_handler = RecordingHandler(
@@ -32,7 +32,7 @@ def get_prediction(command):
 
 def predict_offline():
     X, y = preprocess_recording(recording, config)
-    X = X[:, :, 1:]
+    X = X[:, :, 1:]  # TODO 501 samples issue
     print(X.shape)
     X_transformed = extractor.transform(X)
     acc = predictor.score(X_transformed, y)

@@ -1,16 +1,20 @@
 import sys
 from pathlib import Path
-import json
 
 
 parent_dir = str(Path(__file__).parents[1].resolve())
 sys.path.append(parent_dir)
 from feature_extraction.extractors import CSPExtractor
 from data_acquisition.preprocessing import preprocess_recording
-from data_acquisition.rail_check import railed_heatmap
-from classifiers import LDAClassifier, SVMClassifier, RFClassifier, MLPClassifier
-from train_model import train_model, create_config
+from classification.classifiers import (
+    LDAClassifier,
+    SVMClassifier,
+    RFClassifier,
+    MLPClassifier,
+)
+from classification.train_test_model import create_config
 import numpy as np
+from natsort import natsorted
 import os
 from dotenv import load_dotenv
 from sklearn.model_selection import LeaveOneOut
@@ -23,8 +27,6 @@ mne.set_log_level("WARNING")
 
 load_dotenv()
 DATA_PATH = os.environ["DATA_PATH"]
-SERIAL_PORT = os.environ["SERIAL_PORT"]
-TRIAL_OFFSET = float(os.environ["TRIAL_OFFSET"])
 
 
 def score_loocv(recording_name, constructor, config):
@@ -56,18 +58,6 @@ def score_loocv(recording_name, constructor, config):
     }
 
 
-def loocv_per_block(constructor, X, y):
-    overall_acc = score_loocv(constructor, X, y)["acc"]
-    print(f"Overall loocv mean accuracy: {overall_acc}")
-
-    for block in range(1, 4):
-        block_len = len(y) // 3
-        start = (block - 1) * block_len
-        stop = block * block_len
-        block_acc = score_loocv(constructor, X[start:stop, :], y[start:stop])["acc"]
-        print(f"Block {block} loocv mean accuracy: {block_acc}")
-
-
 def loocv_plot(users, constructors, ax, config):
     data = np.zeros((len(classifiers), len(users)))
     classes = config["n_classes"]
@@ -87,8 +77,8 @@ def loocv_plot(users, constructors, ax, config):
     # Show the tick labels
     ax.xaxis.set_tick_params(labeltop=True)
 
-    x_labels = [f"P{i}" for i in range(1, 21)] + ["avg"]
-    y_labels = ["LDA", "SVM", "RF"][: len(constructors)] + ["avg"]
+    x_labels = users + ["avg"]
+    y_labels = [(c.__name__).replace("Classifier", "") for c in constructors] + ["avg"]
     # Hide the tick labels
     ax.xaxis.set_tick_params(labelbottom=False)
     sns.heatmap(
@@ -114,10 +104,13 @@ def save_loocv_plot(users, classifiers, config, title):
 
 if __name__ == "__main__":
     dir = Path(f"{DATA_PATH}/recordings/users")
-    users = sorted([path.stem for path in dir.glob("*.hdf5")])
+    users = natsorted([path.stem for path in dir.glob("*.hdf5")])
 
-    classifiers = [LDAClassifier, SVMClassifier]
-    config = create_config()
-    title = "Accuracy_LDA_SVM, 2_comps"  # TODO autogenerate title based on non-default config params
+    classifiers = [LDAClassifier, SVMClassifier, RFClassifier, MLPClassifier]
+    params = {}
 
-    save_loocv_plot(users, classifiers, config, title)
+    config = create_config(**params)
+    title = "Accuracy for " + ", ".join(
+        f"{param}={value}" for param, value in params.items()
+    )
+    # save_loocv_plot(users, classifiers, config, title)

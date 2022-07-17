@@ -3,6 +3,7 @@ pygame
 python-dotenv
 pyzmq
 numpy
+natsort
 pandas
 scipy
 joblib

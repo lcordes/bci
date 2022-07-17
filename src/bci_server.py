@@ -11,6 +11,8 @@ from classification.classifiers import Classifier
 class BCIServer:
     def __init__(self, board_type, model_name, recording):
         self.recording = recording
+        if self.recording:
+            model_name = {f"optimal_u{self.recording}"}
         self.extractor = Extractor()
         self.extractor.load_model(model_name)
         self.predictor = Classifier()
@@ -19,7 +21,7 @@ class BCIServer:
 
         if self.recording:
             self.data_handler = RecordingHandler(
-                recording_name="Training_session_#646445_30-06-2022_14-29-27",
+                recording_name=f"u{self.recording}",
                 config=self.config,
             )
         else:
@@ -70,8 +72,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--model",
         nargs="?",
-        default="optimal_16_LDA",
-        const="optimal_16_LDA",
+        default="model",
+        const="model",
         help="Specify the Extractor and Classifier model name.",
     )
 
@@ -85,9 +87,11 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--recording",
-        help="Simulate live data from a recording",
-        action="store_true",
-        default=False,
+        nargs="?",
+        default=None,
+        const=None,
+        choices=list(range(1, 21)),
+        help="Simulate live data from a given user recording",
     )
     args = parser.parse_args()
     server = BCIServer(

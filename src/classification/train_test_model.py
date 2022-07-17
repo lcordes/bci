@@ -5,7 +5,8 @@ from pathlib import Path
 parent_dir = str(Path(__file__).parents[1].resolve())
 sys.path.append(parent_dir)
 
-from feature_extraction.extractors import CSPExtractor
+from feature_extraction.extractors import Extractor, CSPExtractor
+from classification.classifiers import Classifier
 from data_acquisition.preprocessing import preprocess_recording
 
 
@@ -33,7 +34,7 @@ def create_config(
     }
 
 
-def train_model(users, constructor, config):
+def train_model(users, constructor, config, save=False):
     if isinstance(users, list):
         X, y = preprocess_recording(users[0], config)
         for u in users:
@@ -45,20 +46,25 @@ def train_model(users, constructor, config):
         X, y = preprocess_recording(users, config)
     extractor = CSPExtractor(config)
     X_transformed = extractor.fit_transform(X, y)
-    extractor.save_model(config["model_name"])
-    classifier = constructor()
+    classifier = constructor(config)
     classifier.fit(X_transformed, y)
-    classifier.save_model(config)
+
+    if save:
+        extractor.save_model(config["model_name"])
+        classifier.save_model(config)
+
+    return extractor, classifier
 
 
-def test_model(test_user, model_name, model_constructor):
-    extractor = CSPExtractor()
-    extractor.load_model(model_name)
-    predictor = model_constructor()
-    predictor.load_model(model_name)
-    config = predictor.model.config
-
-    X, y = preprocess_recording(test_user, config)
+def test_model(test_user, model):
+    if isinstance(model, str):
+        extractor = Extractor()
+        extractor.load_model(model)
+        predictor = Classifier()
+        predictor.load_model(model)
+    else:
+        extractor, predictor = model
+    X, y = preprocess_recording(test_user, predictor.model.config)
     X_transformed = extractor.transform(X)
     acc = predictor.score(X_transformed, y)
     return np.round(acc, 3)
