@@ -9,7 +9,7 @@ legacy code
 *.png
 *.hdf5
 *.sh
-
+results/*/*.json
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
