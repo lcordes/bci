@@ -67,4 +67,4 @@ def test_model(test_user, model):
     X, y = preprocess_recording(test_user, predictor.model.config)
     X_transformed = extractor.transform(X)
     acc = predictor.score(X_transformed, y)
-    return np.round(acc, 3)
+    return acc

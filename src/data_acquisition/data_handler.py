@@ -42,8 +42,8 @@ class RecordingHandler:
             )
 
     def get_current_data(self, label):
-        """Returns (ONLINE_FILTER_LENGTH) seconds of data of a randomly chosen trial
-        of the given label classm, with ONLINE_FILTER_LENGTH - IMAGERY_PERIOD giving the trial onset"""
+        """Return (ONLINE_FILTER_LENGTH) seconds of data of a randomly chosen trial
+        of the given label class, with ONLINE_FILTER_LENGTH - IMAGERY_PERIOD giving the trial onset"""
         upper = self.sampling_rate * IMAGERY_PERIOD
         lower = self.sampling_rate * (ONLINE_FILTER_LENGTH - IMAGERY_PERIOD)
 

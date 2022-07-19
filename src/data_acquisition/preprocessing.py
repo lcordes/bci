@@ -92,8 +92,9 @@ def epochs_from_raw(raw, marker_data, sampling_rate, tmax):
 
 
 def preprocess_trial(data, sampling_rate, config):
-    """Gets data of length (ONLINE_FILTER_LENGTH) seconds, with
-    ONLINE_FILTER_LENGTH - IMAGERY_PERIOD giving the trial onset."""
+    """Get data of length (ONLINE_FILTER_LENGTH) seconds, with
+    ONLINE_FILTER_LENGTH - IMAGERY_PERIOD giving the trial onset,
+    filter it and extract the interest period."""
     filtered = filter_array(
         data,
         sampling_rate,

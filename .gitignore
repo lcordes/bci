@@ -5,11 +5,12 @@ legacy code
 *.npy
 *.zip
 *scratchpad.py
+test.py
 *.pkl
 *.png
 *.hdf5
 *.sh
-results/*/*.json
+results
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

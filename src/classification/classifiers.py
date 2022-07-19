@@ -62,7 +62,7 @@ class RFClassifier(Classifier):
 class SVMClassifier(Classifier):
     def __init__(self, config):
         self.type = "SVM"
-        self.model = SVC(probability=True)
+        self.model = SVC()
         self.model.config = config
 
 
