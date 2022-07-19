@@ -88,29 +88,6 @@ def get_all_optimal_train_sets(users, classifier, config, save_model=False):
     return data
 
 
-def optimal_train_sets_info(data):
-    """Report summary statistics of prediction accuracies across test users,
-    how often each user was included in an optimal train set and plot the
-    stepwise accuracy development."""
-
-    if isinstance(data, str):
-        with open(f"{RESULTS_PATH}/stepwise_selection/{data}_optimal.json", "r") as f:
-            data = json.load(f)
-
-    print(f"Summary for {data['classifier']}")
-    mean_acc = np.round(np.mean([user["best_acc"] for user in data["users"]]), 3)
-    std = np.round(np.std([user["best_acc"] for user in data["users"]]), 3)
-    print(f"Mean accuracy: {mean_acc}, std: {std}")
-    selected = []
-    for user in data["users"]:
-        selected.extend(user["best_set"])
-    n_selected = [selected.count(u["user"]) for u in data["users"]]
-
-    for i in np.flip(np.argsort(n_selected)):
-        print(f"u{i+1}: {n_selected[i]} inclusions")
-    plot_acc_history(data, mean_acc)
-
-
 def plot_acc_history(data, mean_acc):
     plt.close()
     plt.figure(figsize=(13, 7))
@@ -132,19 +109,58 @@ def plot_acc_history(data, mean_acc):
     )
 
 
+def optimal_train_sets_stats(data):
+    """Get summary statistics of prediction accuracies across test users,
+    how often each user was included in an optimal train set and plot the
+    stepwise accuracy development."""
+
+    if isinstance(data, str):
+        with open(f"{RESULTS_PATH}/stepwise_selection/{data}_optimal.json", "r") as f:
+            data = json.load(f)
+
+    mean_acc = np.round(np.mean([user["best_acc"] for user in data["users"]]), 3)
+    std = np.round(np.std([user["best_acc"] for user in data["users"]]), 3)
+
+    for user in data["users"]:
+        user["n_selected"] = sum(
+            [user["user"] in other_user["best_set"] for other_user in data["users"]]
+        )
+
+    plot_acc_history(data, mean_acc)
+    return data
+
+
+def clf_agreement(clf1, clf2):
+    agreement = [
+        set(u_clf1["best_set"]).intersection(set(u_clf2["best_set"]))
+        for u_clf1, u_clf2 in zip(clf1["users"], clf2["users"])
+    ]
+    total = []
+    for i, a in enumerate(agreement):
+        total.extend(list(a))
+
+    n_selected = [total.count(f"u{i}") for i in range(1, 21)]
+    for i in np.flip(np.argsort(n_selected)):
+        clf1_num = clf1["users"][i]["n_selected"]
+        clf2_num = clf2["users"][i]["n_selected"]
+        print(
+            f"u{i+1:02}: {n_selected[i]} agreed inclusions ({clf1['classifier']}={clf1_num}, {clf2['classifier']}={clf2_num})"
+        )
+
+
 def get_results(classifiers, config, rerun=True):
     if rerun:
-        results = [
+        jobs = [
             get_all_optimal_train_sets(users, classifier, config, save_model=True)
             for classifier in classifiers
         ]
     else:
-        results = [
+        jobs = [
             classifier.__name__.replace("Classifier", "") for classifier in classifiers
         ]
 
-    for result in results:
-        optimal_train_sets_info(result)
+    results = [optimal_train_sets_stats(job) for job in jobs]
+    clf_agreement(results[0], results[1])
 
 
 if __name__ == "__main__":
