@@ -5,6 +5,12 @@ from pathlib import Path
 parent_dir = str(Path(__file__).parents[1].resolve())
 sys.path.append(parent_dir)
 
+from sklearn.metrics import (
+    accuracy_score,
+    confusion_matrix,
+    f1_score,
+    matthews_corrcoef,
+)
 from feature_extraction.extractors import Extractor, CSPExtractor
 from classification.classifiers import Classifier
 from data_acquisition.preprocessing import preprocess_recording
@@ -12,6 +18,9 @@ from data_acquisition.preprocessing import preprocess_recording
 
 def create_config(
     model_name="",
+    description="",
+    model_type="LDA",
+    clf_specific={},
     channels=["CP1", "C3", "FC1", "Cz", "FC2", "C4", "CP2", "Fpz"],
     n_channels=8,
     n_classes=3,
@@ -23,6 +32,9 @@ def create_config(
 ):
     return {
         "model_name": model_name,
+        "description": description,
+        "model_type": model_type,
+        "clf_specific": clf_specific,
         "n_channels": n_channels,
         "channels": channels,
         "n_classes": n_classes,
@@ -34,7 +46,16 @@ def create_config(
     }
 
 
-def train_model(users, constructor, config, save=False):
+def get_metrics(y_true, y_pred):
+    return {
+        "acc": float(np.round(accuracy_score(y_true, y_pred), 3)),
+        "conf": [int(c) for c in confusion_matrix(y_true, y_pred).flatten()],
+        "matthews": float(matthews_corrcoef(y_true, y_pred)),
+        "f1": float(f1_score(y_true, y_pred, average="macro")),
+    }
+
+
+def train_model(users, constructor, config, save=False, subset_idx=None):
     if isinstance(users, list):
         X, y = preprocess_recording(users[0], config)
         for u in users:
@@ -44,6 +65,10 @@ def train_model(users, constructor, config, save=False):
                 y = np.append(y, new_y, axis=0)
     else:
         X, y = preprocess_recording(users, config)
+        if subset_idx:
+            X = X[subset_idx, :, :]
+            y = y[subset_idx]
+
     extractor = CSPExtractor(config)
     X_transformed = extractor.fit_transform(X, y)
     classifier = constructor(config)
@@ -56,7 +81,7 @@ def train_model(users, constructor, config, save=False):
     return extractor, classifier
 
 
-def test_model(test_user, model):
+def test_model(test_user, model, subset_idx=None):
     if isinstance(model, str):
         extractor = Extractor()
         extractor.load_model(model)
@@ -64,7 +89,10 @@ def test_model(test_user, model):
         predictor.load_model(model)
     else:
         extractor, predictor = model
+
     X, y = preprocess_recording(test_user, predictor.model.config)
+    if subset_idx:
+        X, y = X[subset_idx, :, :], y[subset_idx]
     X_transformed = extractor.transform(X)
     acc = predictor.score(X_transformed, y)
     return acc

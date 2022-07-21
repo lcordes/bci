@@ -41,4 +41,5 @@ class Extractor:
 class CSPExtractor(Extractor):
     def __init__(self, config):
         self.type = "CSP"
+
         self.model = CSP(n_components=config["csp_components"])

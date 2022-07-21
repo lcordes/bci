@@ -24,7 +24,9 @@ DATA_PATH = os.environ["DATA_PATH"]
 RESULTS_PATH = os.environ["RESULTS_PATH"]
 
 
-def get_current_best_user(users, test_user, classifier, config, selected):
+def get_current_best_user(
+    users, test_user, classifier, config, selected, subset_idx=None
+):
     """Return the user which best predicts the test_user, as well as their
     prediction accuracy. If selected is not empty the best new user is
     determined in combination with the already selected users."""
@@ -35,12 +37,12 @@ def get_current_best_user(users, test_user, classifier, config, selected):
             if selected:
                 train_user = [train_user] + selected
             model = train_model(train_user, classifier, config)
-            accs[idx] = test_model(test_user, model)
+            accs[idx] = test_model(test_user, model, subset_idx)
     max_idx = np.argmax(accs)
     return users[max_idx], accs[max_idx]
 
 
-def stepwise_selection(users, test_user, classifier, config):
+def stepwise_selection(users, test_user, classifier, config, subset_idx=None):
     """Sequentially add the current most predictive user to the
     train set and save the resulting prediction accuracies."""
     selected = []
@@ -50,7 +52,7 @@ def stepwise_selection(users, test_user, classifier, config):
     print(f"Finding optimal train set users for testing on {test_user}")
     while step < len(users):
         best_user, acc = get_current_best_user(
-            users, test_user, classifier, config, selected
+            users, test_user, classifier, config, selected, subset_idx
         )
         selected.append(best_user)
         accs.append(acc)
@@ -144,7 +146,7 @@ def clf_agreement(clf1, clf2):
         clf1_num = clf1["users"][i]["n_selected"]
         clf2_num = clf2["users"][i]["n_selected"]
         print(
-            f"u{i+1:02}: {n_selected[i]} agreed inclusions ({clf1['classifier']}={clf1_num}, {clf2['classifier']}={clf2_num})"
+            f"u{i+1}: {n_selected[i]} agreed inclusions ({clf1['classifier']}={clf1_num}, {clf2['classifier']}={clf2_num})"
         )
 
 

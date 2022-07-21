@@ -48,26 +48,34 @@ class Classifier:
 class LDAClassifier(Classifier):
     def __init__(self, config):
         self.type = "LDA"
-        self.model = LinearDiscriminantAnalysis()
+        self.model = LinearDiscriminantAnalysis(**config["clf_specific"])
         self.model.config = config
 
 
 class RFClassifier(Classifier):
     def __init__(self, config):
         self.type = "RF"
-        self.model = RandomForestClassifier()
+        self.model = RandomForestClassifier(**config["clf_specific"])
         self.model.config = config
 
 
 class SVMClassifier(Classifier):
     def __init__(self, config):
         self.type = "SVM"
-        self.model = SVC()
+        self.model = SVC(**config["clf_specific"])
         self.model.config = config
 
 
 class MLPClassifier(Classifier):
     def __init__(self, config):
         self.type = "MLP"
-        self.model = MLP(max_iter=500)
+        self.model = MLP(**config["clf_specific"], max_iter=500)
         self.model.config = config
+
+
+CLASSIFIERS = {
+    "RF": RFClassifier,
+    "SVM": SVMClassifier,
+    "LDA": LDAClassifier,
+    "MLP": MLPClassifier,
+}
