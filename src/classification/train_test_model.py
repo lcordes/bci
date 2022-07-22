@@ -12,7 +12,7 @@ from sklearn.metrics import (
     matthews_corrcoef,
 )
 from feature_extraction.extractors import Extractor, CSPExtractor
-from classification.classifiers import Classifier
+from classification.classifiers import Classifier, CLASSIFIERS
 from data_acquisition.preprocessing import preprocess_recording
 
 
@@ -48,14 +48,14 @@ def create_config(
 
 def get_metrics(y_true, y_pred):
     return {
-        "acc": float(np.round(accuracy_score(y_true, y_pred), 3)),
-        "conf": [int(c) for c in confusion_matrix(y_true, y_pred).flatten()],
-        "matthews": float(matthews_corrcoef(y_true, y_pred)),
-        "f1": float(f1_score(y_true, y_pred, average="macro")),
+        "acc": accuracy_score(y_true, y_pred),
+        "conf": confusion_matrix(y_true, y_pred),
+        "matthews": matthews_corrcoef(y_true, y_pred),
+        "f1": f1_score(y_true, y_pred, average="macro"),
     }
 
 
-def train_model(users, constructor, config, save=False, subset_idx=None):
+def train_model(users, config, save=False, subset_idx=None):
     if isinstance(users, list):
         X, y = preprocess_recording(users[0], config)
         for u in users:
@@ -71,7 +71,7 @@ def train_model(users, constructor, config, save=False, subset_idx=None):
 
     extractor = CSPExtractor(config)
     X_transformed = extractor.fit_transform(X, y)
-    classifier = constructor(config)
+    classifier = CLASSIFIERS[config["model_type"]](config)
     classifier.fit(X_transformed, y)
 
     if save:

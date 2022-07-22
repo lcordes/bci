@@ -10,4 +10,5 @@ joblib
 h5py
 mne
 sklearn
-
+matplotlib 
+seaborn

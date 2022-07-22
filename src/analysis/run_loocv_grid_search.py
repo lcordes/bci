@@ -9,17 +9,12 @@ from feature_extraction.extractors import CSPExtractor
 from data_acquisition.preprocessing import preprocess_recording
 from classification.classifiers import CLASSIFIERS
 from classification.train_test_model import create_config
-import numpy as np
 from natsort import natsorted
 import os
 from dotenv import load_dotenv
 from sklearn.model_selection import LeaveOneOut
 from sklearn.model_selection import ParameterGrid
-import seaborn as sns
-from matplotlib import pyplot as plt
-import mne
 
-mne.set_log_level("WARNING")
 
 load_dotenv()
 DATA_PATH = os.environ["DATA_PATH"]
@@ -49,26 +44,38 @@ def score_loocv(recording_name, config):
     return {"user": recording_name, "y_true": y_true, "y_pred": y_pred}
 
 
-def run_grid_search(users, configs):
+def run_grid_search(users, configs, testing=False):
     print(f"Running grid search for {len(configs)} configs")
-    results_file = f"{RESULTS_PATH}/loocv_within_users/grid_search_run_{datetime.now().strftime('%d-%m-%Y_%H-%M')}.json"
+    if testing:
+        results_file = f"{RESULTS_PATH}/loocv_grid_search/grid_search_run_test.json"
+    else:
+        results_file = f"{RESULTS_PATH}/loocv_grid_search/grid_search_run_{datetime.now().strftime('%d-%m-%Y_%H-%M')}.json"
+
     with open(results_file, "w") as f:
         json.dump([], f)
 
+    failed = []
     for c, config in enumerate(configs):
         try:
+            print(f"Working on config {c+1}:\n({config['description']})")
             config_results = {"config": config, "users": []}
             config_results["start_time"] = datetime.now().strftime("%d-%m-%Y_%H-%M-%S")
 
             for recording_name in users:
                 user_results = score_loocv(recording_name, config)
                 config_results["users"].append(user_results)
-            print(f"Config {c+1} done")
+            print(f"Config {c+1} done\n")
             config_results["end_time"] = datetime.now().strftime("%d-%m-%Y_%H-%M-%S")
             save_results(config_results, results_file)
 
         except Exception as e:
             print(f"Config {c+1} error: {config['description']}, got error:", e)
+            failed.append(c + 1)
+
+    if failed:
+        print("Configs failed:", failed)
+    else:
+        print("All configs ran successfully.")
 
 
 def save_results(config_results, results_file):
@@ -81,14 +88,23 @@ def save_results(config_results, results_file):
 
 
 def get_grid_configs(hyper_grid, clf_specific):
-    all_params = {**hyper_grid, **clf_specific}
-    permutations = list(ParameterGrid(all_params))
+    permutations = []
+
+    # Estimate permutations separately per classifier, then join
+    for clf in clf_specific.keys():
+
+        clf_params = {**hyper_grid, **clf_specific[clf]}
+        clf_perms = list(ParameterGrid(clf_params))
+        for perm in clf_perms:
+            perm["model_type"] = clf
+        permutations.extend(clf_perms)
+
     config_args = []
     for perm in permutations:
         # separate permutation args into general and clf specific
         hyper_args, clf_specific_args = {}, {}
         for key, value in perm.items():
-            if key in hyper_grid.keys():
+            if key in hyper_grid.keys() or key == "model_type":
                 hyper_args[key] = value
             else:
                 clf_specific_args[key] = value
@@ -104,9 +120,9 @@ def get_grid_configs(hyper_grid, clf_specific):
 if __name__ == "__main__":
     dir = Path(f"{DATA_PATH}/recordings/users")
     users = natsorted([path.stem for path in dir.glob("*.hdf5")])
+    users = [users[0]]
 
     hyper_grid = {
-        "model_type": ["SVM"],
         "csp_components": [2, 4, 8],
         "channels": [
             ["CP1", "C3", "FC1", "Cz", "FC2", "C4", "CP2", "Fpz"],
@@ -114,8 +130,7 @@ if __name__ == "__main__":
         ],
         "imagery_window": [2, 3, 4],
     }
-    clf_specific = {"C": [1, 10, 100], "kernel": ["linear", "rbf"]}
+    clf_specific = {"SVM": {"C": [1, 10, 100], "kernel": ["linear", "rbf"]}, "LDA": {}}
 
-    clf_specific = {}
     configs = get_grid_configs(hyper_grid, clf_specific)
-    run_grid_search(users, configs)
+    run_grid_search(users, configs, testing=True)
