@@ -10,7 +10,7 @@ test.py
 *.png
 *.hdf5
 *.sh
-results
+/results/**/*.json
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
