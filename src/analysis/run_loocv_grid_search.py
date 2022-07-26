@@ -2,6 +2,7 @@ import sys
 from pathlib import Path
 import json
 from datetime import datetime
+import numpy as np
 
 parent_dir = str(Path(__file__).parents[1].resolve())
 sys.path.append(parent_dir)
@@ -64,12 +65,15 @@ def run_grid_search(users, configs, testing=False):
             for recording_name in users:
                 user_results = score_loocv(recording_name, config)
                 config_results["users"].append(user_results)
-            print(f"Config {c+1} done\n")
+            print(f"{datetime.now().strftime('%H:%M')}: Config {c+1} done\n")
             config_results["end_time"] = datetime.now().strftime("%d-%m-%Y_%H-%M-%S")
             save_results(config_results, results_file)
 
         except Exception as e:
-            print(f"Config {c+1} error: {config['description']}, got error:", e)
+            print(
+                f"{datetime.now().strftime('%H:%M')}: Config {c+1} ({config['description']}) got error:",
+                e,
+            )
             failed.append(c + 1)
 
     if failed:
@@ -120,17 +124,9 @@ def get_grid_configs(hyper_grid, clf_specific):
 if __name__ == "__main__":
     dir = Path(f"{DATA_PATH}/recordings/users")
     users = natsorted([path.stem for path in dir.glob("*.hdf5")])
-    users = [users[0]]
 
-    hyper_grid = {
-        "csp_components": [2, 4, 8],
-        "channels": [
-            ["CP1", "C3", "FC1", "Cz", "FC2", "C4", "CP2", "Fpz"],
-            ["C3", "Cz", "C4"],
-        ],
-        "imagery_window": [2, 3, 4],
-    }
-    clf_specific = {"SVM": {"C": [1, 10, 100], "kernel": ["linear", "rbf"]}, "LDA": {}}
+    hyper_grid = {"imagery_window": [3, 4]}
+    clf_specific = {"QDA": {}}
 
     configs = get_grid_configs(hyper_grid, clf_specific)
-    run_grid_search(users, configs, testing=True)
+    run_grid_search(users, configs, testing=False)

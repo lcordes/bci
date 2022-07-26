@@ -19,7 +19,7 @@ TRIAL_OFFSET = float(os.environ["TRIAL_OFFSET"])
 IMAGERY_PERIOD = float(os.environ["IMAGERY_PERIOD"])
 PRACTICE_END_MARKER = int(os.environ["PRACTICE_END_MARKER"])
 TRIAL_END_MARKER = int(os.environ["TRIAL_END_MARKER"])
-ONLINE_FILTER_LENGTH = os.environ["ONLINE_FILTER_LENGTH"]
+ONLINE_FILTER_LENGTH = float(os.environ["ONLINE_FILTER_LENGTH"])
 
 
 def get_data(recording_name, n_channels):

@@ -1,34 +1,16 @@
-from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+from sklearn.discriminant_analysis import (
+    LinearDiscriminantAnalysis,
+    QuadraticDiscriminantAnalysis,
+)
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.neural_network import MLPClassifier as MLP
-from sklearn.svm import SVC
-import joblib
-import os
-from dotenv import load_dotenv
-
-load_dotenv()
-DATA_PATH = os.environ["DATA_PATH"]
+from sklearn.svm import SVC, NuSVC
 
 
 class Classifier:
     def __init__(self):
         self.model = None
         self.type = "default"
-
-    def load_model(self, model_name):
-        path = f"{DATA_PATH}/models/{self.type}/{model_name}.pkl"
-        try:
-            self.model = joblib.load(path)
-        except:
-            print("Classifier model not found.")
-        self.type = self.model.config["model_type"]
-
-    def save_model(self, config):
-        config["model_type"] = self.type
-        self.model.config = config
-        name = config["model_name"]
-        path = f"{DATA_PATH}/models/{self.type}/{name}.pkl"
-        joblib.dump(self.model, path)
 
     def fit(self, X, y):
         self.model.fit(X, y)
@@ -52,6 +34,13 @@ class LDAClassifier(Classifier):
         self.model.config = config
 
 
+class QDAClassifier(Classifier):
+    def __init__(self, config):
+        self.type = "QDA"
+        self.model = QuadraticDiscriminantAnalysis(**config["clf_specific"])
+        self.model.config = config
+
+
 class RFClassifier(Classifier):
     def __init__(self, config):
         self.type = "RF"
@@ -66,16 +55,25 @@ class SVMClassifier(Classifier):
         self.model.config = config
 
 
+class NUSVMClassifier(Classifier):
+    def __init__(self, config):
+        self.type = "NUSVM"
+        self.model = NuSVC(**config["clf_specific"])
+        self.model.config = config
+
+
 class MLPClassifier(Classifier):
     def __init__(self, config):
         self.type = "MLP"
-        self.model = MLP(**config["clf_specific"], max_iter=500)
+        self.model = MLP(**config["clf_specific"])
         self.model.config = config
 
 
 CLASSIFIERS = {
     "RF": RFClassifier,
     "SVM": SVMClassifier,
+    "NUSVM": NUSVMClassifier,
     "LDA": LDAClassifier,
+    "QDA": QDAClassifier,
     "MLP": MLPClassifier,
 }

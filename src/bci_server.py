@@ -4,24 +4,21 @@ from time import time
 from communication.client_server import Server
 from data_acquisition.data_handler import OpenBCIHandler, RecordingHandler
 from data_acquisition.preprocessing import preprocess_trial
-from feature_extraction.extractors import Extractor
-from classification.classifiers import Classifier
+from classification.train_test_model import load_model
 
 
 class BCIServer:
     def __init__(self, board_type, model_name, recording):
         self.recording = recording
         if self.recording:
-            model_name = {f"optimal_u{self.recording}"}
-        self.extractor = Extractor()
-        self.extractor.load_model(model_name)
-        self.predictor = Classifier()
-        self.predictor.load_model(model_name)
+            model_name = f"LDA_optimal_{self.recording}"
+        self.extractor, self.predictor = load_model(model_name)
         self.config = self.predictor.model.config
+        self.labels = {1: "left", 2: "right", 3: "down"}
 
         if self.recording:
             self.data_handler = RecordingHandler(
-                recording_name=f"u{self.recording}",
+                recording_name=f"{self.recording}",
                 config=self.config,
             )
         else:
@@ -41,7 +38,8 @@ class BCIServer:
         probs = self.predictor.predict_probs(features)
         probs = [np.round(prob, 3) for prob in probs]
 
-        prediction = int(self.predictor.predict(features))
+        prediction = self.labels[int(self.predictor.predict(features))]
+
         print("Raw shape:", raw.shape)
         print("Processed shape:", processed.shape)
         print("Features shape:", features.shape)
@@ -90,7 +88,6 @@ if __name__ == "__main__":
         nargs="?",
         default=None,
         const=None,
-        choices=list(range(1, 21)),
         help="Simulate live data from a given user recording",
     )
     args = parser.parse_args()

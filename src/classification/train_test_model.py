@@ -1,9 +1,16 @@
 import numpy as np
 import sys
 from pathlib import Path
+import joblib
 
 parent_dir = str(Path(__file__).parents[1].resolve())
 sys.path.append(parent_dir)
+
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+DATA_PATH = os.environ["DATA_PATH"]
 
 from sklearn.metrics import (
     accuracy_score,
@@ -11,8 +18,8 @@ from sklearn.metrics import (
     f1_score,
     matthews_corrcoef,
 )
-from feature_extraction.extractors import Extractor, CSPExtractor
-from classification.classifiers import Classifier, CLASSIFIERS
+from feature_extraction.extractors import CSPExtractor
+from classification.classifiers import CLASSIFIERS
 from data_acquisition.preprocessing import preprocess_recording
 
 
@@ -46,6 +53,20 @@ def create_config(
     }
 
 
+def load_model(model):
+    path = f"{DATA_PATH}/models/{model}.pkl"
+    try:
+        return joblib.load(path)
+    except:
+        print("Model not found.")
+
+
+def save_model(extractor, predictor, config):
+    predictor.model.config = config
+    path = f"{DATA_PATH}/models/{config['model_name']}.pkl"
+    joblib.dump((extractor, predictor), path)
+
+
 def get_metrics(y_true, y_pred):
     return {
         "acc": accuracy_score(y_true, y_pred),
@@ -75,18 +96,14 @@ def train_model(users, config, save=False, subset_idx=None):
     classifier.fit(X_transformed, y)
 
     if save:
-        extractor.save_model(config["model_name"])
-        classifier.save_model(config)
+        save_model(extractor, classifier, config)
 
     return extractor, classifier
 
 
 def test_model(test_user, model, subset_idx=None):
     if isinstance(model, str):
-        extractor = Extractor()
-        extractor.load_model(model)
-        predictor = Classifier()
-        predictor.load_model(model)
+        extractor, predictor = load_model(model)
     else:
         extractor, predictor = model
 

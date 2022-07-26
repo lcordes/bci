@@ -18,7 +18,7 @@ SERIAL_PORT = os.environ["SERIAL_PORT"]
 DATA_PATH = os.environ["DATA_PATH"]
 CHANNEL_MAP_PATH = os.environ["CHANNEL_MAP_PATH"]
 IMAGERY_PERIOD = float(os.environ["IMAGERY_PERIOD"])
-ONLINE_FILTER_LENGTH = os.environ["ONLINE_FILTER_LENGTH"]
+ONLINE_FILTER_LENGTH = float(os.environ["ONLINE_FILTER_LENGTH"])
 
 BoardShim.enable_dev_board_logger()
 
@@ -44,8 +44,8 @@ class RecordingHandler:
     def get_current_data(self, label):
         """Return (ONLINE_FILTER_LENGTH) seconds of data of a randomly chosen trial
         of the given label class, with ONLINE_FILTER_LENGTH - IMAGERY_PERIOD giving the trial onset"""
-        upper = self.sampling_rate * IMAGERY_PERIOD
-        lower = self.sampling_rate * (ONLINE_FILTER_LENGTH - IMAGERY_PERIOD)
+        upper = int(self.sampling_rate * IMAGERY_PERIOD)
+        lower = int(self.sampling_rate * (ONLINE_FILTER_LENGTH - IMAGERY_PERIOD))
 
         onset = choice(self.trial_onsets[label])
         data = self.recording[:, (onset - lower) : (onset + upper)]

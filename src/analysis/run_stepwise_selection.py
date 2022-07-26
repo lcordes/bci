@@ -55,7 +55,7 @@ def get_all_optimal_train_sets(users, config, save_model=False):
     """Determine the best combination of users to train on for all users individually"""
     data = {"users": [], "classifier": config["model_type"]}
     for user in users:
-        config["model_name"] = f"optimal_{user}"
+        config["model_name"] = f"{config['model_type']}_optimal_{user}"
         accs, selected = stepwise_selection(users, user, config)
         best_set = selected[: (np.argmax(accs) + 1)]
         print("Accuracy history:", [np.round(a, 3) for a in accs])
@@ -85,6 +85,9 @@ if __name__ == "__main__":
     dir = Path(f"{DATA_PATH}/recordings/users")
     users = natsorted([path.stem for path in dir.glob("*.hdf5")])
 
-    params = {"model_type": "LDA"}
+    params = {
+        "model_type": "LDA",
+        "clf_specific": {"solver": "lsqr", "shrinkage": "auto"},
+    }
     config = create_config(**params)
     get_all_optimal_train_sets(users, config, save_model=True)
