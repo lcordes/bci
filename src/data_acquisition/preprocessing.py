@@ -28,7 +28,7 @@ def get_data(recording_name, n_channels):
     Returns a training data set of shape (trials x channels x samples)
     and a corresponding set of labels with shape (trials).
     """
-    path = f"{DATA_PATH}/recordings/users/{recording_name}.hdf5"
+    path = f"{DATA_PATH}/recordings/training_data_collection/{recording_name}.hdf5"
     with h5py.File(path, "r") as file:
         trials = file["data"][()]
         metadata = dict(file["data"].attrs)

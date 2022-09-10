@@ -53,7 +53,7 @@ class Simulator:
 
 
 if __name__ == "__main__":
-    dir = Path(f"{DATA_PATH}/recordings/users")
+    dir = Path(f"{DATA_PATH}/recordings/training_data_collection")
     users = natsorted([path.stem for path in dir.glob("*.hdf5")])
     n_iter = 1000
     for user in users:

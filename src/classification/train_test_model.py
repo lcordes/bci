@@ -101,7 +101,7 @@ def train_model(users, config, save=False, subset_idx=None):
     return extractor, classifier
 
 
-def test_model(test_user, model, subset_idx=None):
+def test_model(test_user, model, subset_idx=None, score=True):
     if isinstance(model, str):
         extractor, predictor = load_model(model)
     else:
@@ -111,5 +111,9 @@ def test_model(test_user, model, subset_idx=None):
     if subset_idx:
         X, y = X[subset_idx, :, :], y[subset_idx]
     X_transformed = extractor.transform(X)
-    acc = predictor.score(X_transformed, y)
-    return acc
+    if score:
+        acc = predictor.score(X_transformed, y)
+        return acc
+    else:
+        preds = predictor.predict(X_transformed)
+        return preds

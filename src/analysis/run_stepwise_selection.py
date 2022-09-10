@@ -82,7 +82,7 @@ def get_all_optimal_train_sets(users, config, save_model=False):
 
 
 if __name__ == "__main__":
-    dir = Path(f"{DATA_PATH}/recordings/users")
+    dir = Path(f"{DATA_PATH}/recordings/training_data_collection")
     users = natsorted([path.stem for path in dir.glob("*.hdf5")])
 
     params = {

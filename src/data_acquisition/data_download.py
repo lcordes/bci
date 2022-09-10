@@ -16,5 +16,5 @@ def download_data(url, dir):
 
 
 if __name__ == "__main__":
-    dir = f"{DATA_PATH}/recordings/users"
+    dir = f"{DATA_PATH}/recordings/training_data_collection"
     download_data(DATA_URL, dir)

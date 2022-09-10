@@ -1,4 +1,4 @@
-Notes.md
+TODO.md
 legacy code
 *.drawio
 *.csv
@@ -9,6 +9,7 @@ test.py
 *.pkl
 *.png
 *.hdf5
+*.gdf
 *.sh
 /results/**/*.json
 

@@ -1,20 +1,22 @@
-import sys
+from natsort import natsorted
+import os
 from pathlib import Path
-import json
-from datetime import datetime
-import numpy as np
+import sys
 
 parent_dir = str(Path(__file__).parents[1].resolve())
 sys.path.append(parent_dir)
-from feature_extraction.extractors import CSPExtractor
-from data_acquisition.preprocessing import preprocess_recording
-from classification.classifiers import CLASSIFIERS
-from classification.train_test_model import create_config
-from natsort import natsorted
-import os
+
 from dotenv import load_dotenv
 from sklearn.model_selection import LeaveOneOut
 from sklearn.model_selection import ParameterGrid
+from classification.train_test_model import create_config
+from classification.classifiers import CLASSIFIERS
+from data_acquisition.preprocessing import preprocess_recording
+from feature_extraction.extractors import CSPExtractor
+import numpy as np
+from datetime import datetime
+import json
+
 
 
 load_dotenv()
@@ -60,13 +62,19 @@ def run_grid_search(users, configs, testing=False):
         try:
             print(f"Working on config {c+1}:\n({config['description']})")
             config_results = {"config": config, "users": []}
-            config_results["start_time"] = datetime.now().strftime("%d-%m-%Y_%H-%M-%S")
+            config_results["start_time"] = datetime.now().strftime(
+                "%d-%m-%Y_%H-%M-%S")
 
             for recording_name in users:
                 user_results = score_loocv(recording_name, config)
                 config_results["users"].append(user_results)
             print(f"{datetime.now().strftime('%H:%M')}: Config {c+1} done\n")
-            config_results["end_time"] = datetime.now().strftime("%d-%m-%Y_%H-%M-%S")
+            config_results["end_time"] = datetime.now().strftime(
+                "%d-%m-%Y_%H-%M-%S")
+
+            user_avgs = [np.mean([true == pred for true, pred in zip(u["y_true"], u["y_pred"])]) for u in config_results["users"]]
+            print(f"Acc: {np.round(np.mean(user_avgs),3)}")
+
             save_results(config_results, results_file)
 
         except Exception as e:
@@ -122,11 +130,12 @@ def get_grid_configs(hyper_grid, clf_specific):
 
 
 if __name__ == "__main__":
-    dir = Path(f"{DATA_PATH}/recordings/users")
+    dir = Path(f"{DATA_PATH}/recordings/training_data_collection")
     users = natsorted([path.stem for path in dir.glob("*.hdf5")])
 
     hyper_grid = {"imagery_window": [3, 4]}
-    clf_specific = {"QDA": {}}
+    clf_specific = {"LDA": {"shrinkage": list(np.linspace(
+        0.1, 0.9, 9)) + ["auto"], "solver": ["eigen", "lsqr"]}}
 
     configs = get_grid_configs(hyper_grid, clf_specific)
     run_grid_search(users, configs, testing=False)

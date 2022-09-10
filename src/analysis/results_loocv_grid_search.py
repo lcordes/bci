@@ -114,6 +114,6 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    # loocv_grid_search_results(most_recent=args.recent)
-    data, configs = load_grid_search_results()
-    violin_plot(data)
+    data, configs = load_grid_search_results(most_recent=args.recent)
+    #violin_plot(data)
+    grid_search_results(data, configs, n_best=40)
