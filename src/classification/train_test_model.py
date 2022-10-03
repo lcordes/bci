@@ -30,11 +30,12 @@ def create_config(
     clf_specific={},
     channels=["CP1", "C3", "FC1", "Cz", "FC2", "C4", "CP2", "Fpz"],
     n_channels=8,
+    max_trials=None,
     n_classes=3,
     imagery_window=4,
     csp_components=8,
     bandpass=(8, 13),
-    notch=(25, 50),
+    notch=(50),
     notch_width=0.5,
 ):
     return {
@@ -43,6 +44,7 @@ def create_config(
         "model_type": model_type,
         "clf_specific": clf_specific,
         "n_channels": n_channels,
+        "max_trials": max_trials,
         "channels": channels,
         "n_classes": n_classes,
         "imagery_window": imagery_window,
