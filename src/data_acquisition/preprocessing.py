@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 from brainflow.board_shim import BoardShim
 import sys
 from pathlib import Path
+from random import sample
 
 parent_dir = str(Path(__file__).parents[1].resolve())
 sys.path.append(parent_dir)
@@ -90,6 +91,13 @@ def epochs_from_raw(raw, marker_data, sampling_rate, tmax):
     # TODO this gives 501 samples, make congruent with online samples
     return epochs
 
+def get_trials_subset(X, y, max_trials):
+    subset_idx = [] 
+    for label in set(y):
+        label_indices = [i for i in range(len(y)) if y[i] == label]
+        subset_idx += sample(label_indices, max_trials)
+    
+    return X[subset_idx,:,:], y[subset_idx]
 
 def preprocess_trial(data, sampling_rate, config):
     """Get data of length (ONLINE_FILTER_LENGTH) seconds, with
@@ -116,13 +124,16 @@ def preprocess_recording(recording_name, config):
         recording_name, config["n_channels"]
     )
 
-    filtered = filter_array(
-        data,
-        sampling_rate,
-        bandpass=config["bandpass"],
-        notch=config["notch"],
-        notch_width=config["notch_width"],
-    )
+    if config["bandpass"]:
+        filtered = filter_array(
+            data,
+            sampling_rate,
+            bandpass=config["bandpass"],
+            notch=config["notch"],
+            notch_width=config["notch_width"],
+        )
+    else:
+        filtered = data
 
     raw = raw_from_array(filtered, sampling_rate, channel_names)
     raw = raw.pick(config["channels"])
@@ -139,5 +150,8 @@ def preprocess_recording(recording_name, config):
     if config["n_classes"] == 2:
         X = X[y != 3, :, :]
         y = y[y != 3]
+
+    if config["max_trials"]:
+        X, y = get_trials_subset(X, y, config["max_trials"])
 
     return X, y
