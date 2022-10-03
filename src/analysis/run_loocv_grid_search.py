@@ -24,9 +24,7 @@ DATA_PATH = os.environ["DATA_PATH"]
 RESULTS_PATH = os.environ["RESULTS_PATH"]
 
 
-def score_loocv(recording_name, config):
-    X, y = preprocess_recording(recording_name, config)
-
+def score_loocv(X, y, config):
     looc = LeaveOneOut()
     looc.get_n_splits(X)
     y_true = []
@@ -44,7 +42,7 @@ def score_loocv(recording_name, config):
         y_true.append(int(y_test))
         y_pred.append(int(clf.predict(X_test_transformed)))
 
-    return {"user": recording_name, "y_true": y_true, "y_pred": y_pred}
+    return y_true, y_pred
 
 
 def run_grid_search(users, configs, testing=False):
@@ -60,21 +58,21 @@ def run_grid_search(users, configs, testing=False):
     failed = []
     for c, config in enumerate(configs):
         try:
-            print(f"Working on config {c+1}:\n({config['description']})")
+            print(f"C{c+1}",config['description'])
             config_results = {"config": config, "users": []}
             config_results["start_time"] = datetime.now().strftime(
                 "%d-%m-%Y_%H-%M-%S")
 
             for recording_name in users:
-                user_results = score_loocv(recording_name, config)
+                X, y = preprocess_recording(recording_name, config)
+                y_true, y_pred = score_loocv(X, y, config)
+                user_results = {"user": recording_name, "y_true": y_true, "y_pred": y_pred}
                 config_results["users"].append(user_results)
-            print(f"{datetime.now().strftime('%H:%M')}: Config {c+1} done\n")
             config_results["end_time"] = datetime.now().strftime(
                 "%d-%m-%Y_%H-%M-%S")
 
             user_avgs = [np.mean([true == pred for true, pred in zip(u["y_true"], u["y_pred"])]) for u in config_results["users"]]
-            print(f"Acc: {np.round(np.mean(user_avgs),3)}")
-
+            print(f"Acc: {np.round(np.mean(user_avgs),3)}, SD: {np.round(np.std(user_avgs),3)}\n")
             save_results(config_results, results_file)
 
         except Exception as e:
@@ -133,9 +131,8 @@ if __name__ == "__main__":
     dir = Path(f"{DATA_PATH}/recordings/training_data_collection")
     users = natsorted([path.stem for path in dir.glob("*.hdf5")])
 
-    hyper_grid = {"imagery_window": [3, 4]}
-    clf_specific = {"LDA": {"shrinkage": list(np.linspace(
-        0.1, 0.9, 9)) + ["auto"], "solver": ["eigen", "lsqr"]}}
+    hyper = {"bandpass": [(10, 12)]}
+    lda_specific = {"LDA": {"shrinkage": ["auto"], "solver": ["eigen"]}}
+    lda_configs = get_grid_configs(hyper, lda_specific)
 
-    configs = get_grid_configs(hyper_grid, clf_specific)
-    run_grid_search(users, configs, testing=False)
+    run_grid_search(users, lda_configs, testing=False)
