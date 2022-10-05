@@ -7,12 +7,9 @@ parent_dir = str(Path(__file__).parents[1].resolve())
 sys.path.append(parent_dir)
 
 from dotenv import load_dotenv
-from sklearn.model_selection import LeaveOneOut
 from sklearn.model_selection import ParameterGrid
 from classification.train_test_model import create_config
-from classification.classifiers import CLASSIFIERS
-from data_acquisition.preprocessing import preprocess_recording
-from feature_extraction.extractors import CSPExtractor
+from data_acquisition.preprocessing import preprocess_openbci
 import numpy as np
 from datetime import datetime
 import json
@@ -23,26 +20,6 @@ load_dotenv()
 DATA_PATH = os.environ["DATA_PATH"]
 RESULTS_PATH = os.environ["RESULTS_PATH"]
 
-
-def score_loocv(X, y, config):
-    looc = LeaveOneOut()
-    looc.get_n_splits(X)
-    y_true = []
-    y_pred = []
-
-    for train_index, test_index in looc.split(X):
-        X_train, X_test = X[train_index], X[test_index]
-        y_train, y_test = y[train_index], y[test_index]
-        extractor = CSPExtractor(config)
-        X_train_transformed = extractor.fit_transform(X_train, y_train)
-        X_test_transformed = extractor.transform(X_test)
-
-        clf = CLASSIFIERS[config["model_type"]](config)
-        clf.fit(X_train_transformed, y_train)
-        y_true.append(int(y_test))
-        y_pred.append(int(clf.predict(X_test_transformed)))
-
-    return y_true, y_pred
 
 
 def run_grid_search(users, configs, testing=False):
@@ -64,8 +41,8 @@ def run_grid_search(users, configs, testing=False):
                 "%d-%m-%Y_%H-%M-%S")
 
             for recording_name in users:
-                X, y = preprocess_recording(recording_name, config)
-                y_true, y_pred = score_loocv(X, y, config)
+                X, y = preprocess_openbci(recording_name, config)
+                y_true, y_pred = loocv(X, y, config)
                 user_results = {"user": recording_name, "y_true": y_true, "y_pred": y_pred}
                 config_results["users"].append(user_results)
             config_results["end_time"] = datetime.now().strftime(
@@ -74,6 +51,10 @@ def run_grid_search(users, configs, testing=False):
             user_avgs = [np.mean([true == pred for true, pred in zip(u["y_true"], u["y_pred"])]) for u in config_results["users"]]
             print(f"Acc: {np.round(np.mean(user_avgs),3)}, SD: {np.round(np.std(user_avgs),3)}\n")
             save_results(config_results, results_file)
+
+            title = "Within classification loocv(training data, 10-12)"
+            with open(f"{RESULTS_PATH}/within/{title}.npy", 'wb') as f:
+                np.save(f, np.array(user_avgs))
 
         except Exception as e:
             print(

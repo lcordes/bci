@@ -7,7 +7,7 @@ parent_dir = str(Path(__file__).parents[1].resolve())
 sys.path.append(parent_dir)
 
 from data_acquisition.preprocessing import preprocess_recording
-from analysis.run_stepwise_selection import stepwise_selection
+from analysis.stepwise_selection import stepwise_selection
 from classification.train_test_model import train_model, test_model, create_config
 from sklearn.model_selection import train_test_split
 import numpy as np

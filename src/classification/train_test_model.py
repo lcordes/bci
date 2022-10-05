@@ -12,20 +12,17 @@ from dotenv import load_dotenv
 load_dotenv()
 DATA_PATH = os.environ["DATA_PATH"]
 
-from sklearn.metrics import (
-    accuracy_score,
-    confusion_matrix,
-    f1_score,
-    matthews_corrcoef,
-)
+from feature_extraction.extractors import CSPExtractor
+from sklearn.model_selection import LeaveOneOut
 from feature_extraction.extractors import CSPExtractor
 from classification.classifiers import CLASSIFIERS
-from data_acquisition.preprocessing import preprocess_recording
+from data_acquisition.preprocessing import preprocess_openbci
 
 
 def create_config(
     model_name="",
     description="",
+    data_set="training",
     model_type="LDA",
     clf_specific={},
     channels=["CP1", "C3", "FC1", "Cz", "FC2", "C4", "CP2", "Fpz"],
@@ -69,25 +66,39 @@ def save_model(extractor, predictor, config):
     joblib.dump((extractor, predictor), path)
 
 
-def get_metrics(y_true, y_pred):
-    return {
-        "acc": accuracy_score(y_true, y_pred),
-        "conf": confusion_matrix(y_true, y_pred),
-        "matthews": matthews_corrcoef(y_true, y_pred),
-        "f1": f1_score(y_true, y_pred, average="macro"),
-    }
+
+def loocv(X, y, config):
+    looc = LeaveOneOut()
+    looc.get_n_splits(X)
+    y_true = []
+    y_pred = []
+
+    for train_index, test_index in looc.split(X):
+        X_train, X_test = X[train_index], X[test_index]
+        y_train, y_test = y[train_index], y[test_index]
+        extractor = CSPExtractor(config)
+        X_train_transformed = extractor.fit_transform(X_train, y_train)
+        X_test_transformed = extractor.transform(X_test)
+
+        clf = CLASSIFIERS[config["model_type"]](config)
+        clf.fit(X_train_transformed, y_train)
+        y_true.append(int(y_test))
+        y_pred.append(int(clf.predict(X_test_transformed)))
+
+    return y_true, y_pred
+
 
 
 def train_model(users, config, save=False, subset_idx=None):
     if isinstance(users, list):
-        X, y = preprocess_recording(users[0], config)
+        X, y = preprocess_openbci(users[0], config)
         for u in users:
             if u != users[0]:
-                new_X, new_y = preprocess_recording(u, config)
+                new_X, new_y = preprocess_openbci(u, config)
                 X = np.append(X, new_X, axis=0)
                 y = np.append(y, new_y, axis=0)
     else:
-        X, y = preprocess_recording(users, config)
+        X, y = preprocess_openbci(users, config)
         if subset_idx:
             X = X[subset_idx, :, :]
             y = y[subset_idx]
@@ -109,7 +120,7 @@ def test_model(test_user, model, subset_idx=None, score=True):
     else:
         extractor, predictor = model
 
-    X, y = preprocess_recording(test_user, predictor.model.config)
+    X, y = preprocess_openbci(test_user, predictor.model.config)
     if subset_idx:
         X, y = X[subset_idx, :, :], y[subset_idx]
     X_transformed = extractor.transform(X)

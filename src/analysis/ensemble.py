@@ -13,7 +13,7 @@ sys.path.append(parent_dir)
 
 from dotenv import load_dotenv
 from classification.train_test_model import create_config, train_model, test_model
-from data_acquisition.preprocessing import preprocess_recording
+from data_acquisition.preprocessing import preprocess_openbci
 import numpy as np
 from scipy.stats import mode
 
@@ -29,7 +29,7 @@ def loocv_ensemble(users, config):
 
         # Create subset exluding the current test user
         subset = [u for u in users if u != test_user]
-        _, y = preprocess_recording(test_user, config)
+        _, y = preprocess_openbci(test_user, config)
 
         # Train clfs for all other users
         clf_preds = np.zeros((len(y), len((subset))))

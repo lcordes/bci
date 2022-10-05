@@ -1,3 +1,9 @@
+## Update:
+- how to download or get training/benchmark data
+- overview of analyses
+
+
+
 # Utilities and Apps for Motor Imagery Prediction using a Brain Computer Interface.
 [![Pipeline tests](https://github.com/lcordes/bci/actions/workflows/run-tests.yml/badge.svg)](https://github.com/lcordes/bci/actions/workflows/run-tests.yml)
 ![Overview of the Pipeline](https://github.com/lcordes/bci/blob/main/architecture/pipeline.png)

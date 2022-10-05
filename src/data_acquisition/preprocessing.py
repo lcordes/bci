@@ -88,7 +88,6 @@ def epochs_from_raw(raw, marker_data, sampling_rate, tmax):
         (onsets, np.zeros(len(marker_labels), dtype=int), marker_labels)
     )
     epochs = mne.Epochs(raw, event_arr, tmin=0, tmax=tmax, baseline=None, preload=True)
-    # TODO this gives 501 samples, make congruent with online samples
     return epochs
 
 def get_trials_subset(X, y, max_trials):
@@ -99,29 +98,12 @@ def get_trials_subset(X, y, max_trials):
     
     return X[subset_idx,:,:], y[subset_idx]
 
-def preprocess_trial(data, sampling_rate, config):
-    """Get data of length (ONLINE_FILTER_LENGTH) seconds, with
-    ONLINE_FILTER_LENGTH - IMAGERY_PERIOD giving the trial onset,
-    filter it and extract the interest period."""
-    filtered = filter_array(
-        data,
-        sampling_rate,
-        bandpass=config["bandpass"],
-        notch=config["notch"],
-        notch_width=config["notch_width"],
-    )
-    start = int(
-        (ONLINE_FILTER_LENGTH - (IMAGERY_PERIOD - TRIAL_OFFSET)) * sampling_rate
-    )
-    end = start + config["imagery_window"] * sampling_rate
-    interest_period = filtered[:, :, start:end]
 
-    return interest_period
+def preprocess_openbci(user, config):
+    assert 2 <= config["n_classes"] <= 3, "Invalid number of classes" 
 
-
-def preprocess_recording(recording_name, config):
     data, marker_data, channel_names, sampling_rate = get_data(
-        recording_name, config["n_channels"]
+        user, config["n_channels"]
     )
 
     if config["bandpass"]:
@@ -155,3 +137,92 @@ def preprocess_recording(recording_name, config):
         X, y = get_trials_subset(X, y, config["max_trials"])
 
     return X, y
+
+def get_trials_subset_benchmark(onsets, labels, max_trials):
+    subset_idx = [] 
+    for label in set(labels):
+        label_indices = [i for i in range(len(labels)) if labels[i] == label]
+        subset_idx += sample(label_indices, max_trials)
+    
+    return [onsets[i] for i in subset_idx], [labels[i] for i in subset_idx]
+
+
+
+
+def preprocess_benchmark(user, config):
+    assert 2 <= config["n_classes"] <= 4, "Invalid number of classes" 
+    path = f"{DATA_PATH}/recordings/competition_IV_2a/{user}.gdf"
+
+    # Load gdf file into raw data structure and filter data 
+    raw = mne.io.read_raw_gdf(path, preload=True)
+    channel_dict = {'EEG-Fz': 'Fz', 'EEG-0': 'FC3', 'EEG-1': 'FC1', 'EEG-2': 'FCz',
+    'EEG-3': 'FC2', 'EEG-4': 'FC4', 'EEG-5':'C5', 'EEG-C3': 'C3', 'EEG-6': 'C1',
+    'EEG-Cz': 'Cz', 'EEG-7': 'C2', 'EEG-C4': 'C4', 'EEG-8': 'C6', 'EEG-9': 'CP3',
+    'EEG-10': 'CP1', 'EEG-11': 'CPz', 'EEG-12': 'CP2', 'EEG-13': 'CP4', 'EEG-14': 'P1',
+    'EEG-Pz': 'Pz', 'EEG-15': 'P2', 'EEG-16': 'POz',
+     'EOG-left': 'EOG-left', 'EOG-central': 'EOG-central', 'EOG-right': 'EOG-right'}
+
+    raw.rename_channels(channel_dict)
+    raw.drop_channels(["EOG-left","EOG-central","EOG-right"])
+
+    if config["n_channels"] == 3:
+        raw.pick_channels(["C3", "C4", "Cz"])
+    elif config["n_channels"] == 7:
+        raw.pick_channels(['CP1', 'C3', 'FC1', 'Cz', 'FC2', 'C4', 'CP2'])
+    elif config["n_channels"] == 9:
+        raw.pick_channels(['CP1', 'C3', 'FC1', 'Cz', 'FC2', 'C4', 'CP2', 'Fz', 'Pz'])
+
+    raw.filter(l_freq=config["bandpass"][0], h_freq=config["bandpass"][1])
+
+    # Extract label info
+    raw_onsets = raw._raw_extras[0]["events"][1]
+    raw_labels = raw._raw_extras[0]["events"][2]
+    onsets, labels = [], []
+    for i, label in enumerate(raw_labels):
+
+        if 769 <= label <= (768+config["n_classes"]):
+            onsets.append(raw_onsets[i])
+            labels.append(label)
+
+    labels = [l-768 for l in labels]
+
+    if config["max_trials"]:
+        onsets, labels = get_trials_subset_benchmark(onsets, labels, config["max_trials"])
+
+    # Epoch data
+    event_arr = np.column_stack(
+        (onsets, np.zeros(len(labels), dtype=int), labels)
+    )
+    epochs = mne.Epochs(raw, event_arr, tmin=0.5, tmax=3.5, baseline=None, preload=True)
+    
+    X = epochs.get_data()
+    y = epochs.events[:, 2]
+
+    return X, y
+
+def preprocess_recording(user, config):
+    if config["data_set"] in ["training", "evaluation"]:
+        X, y = preprocess_openbci(user, config)
+    elif config["data_set"] == "benchmark":
+        X, y = preprocess_benchmark(user, config)
+    
+
+def preprocess_trial(data, sampling_rate, config):
+    """Get data of length (ONLINE_FILTER_LENGTH) seconds, with
+    ONLINE_FILTER_LENGTH - IMAGERY_PERIOD giving the trial onset,
+    filter it and extract the interest period."""
+    filtered = filter_array(
+        data,
+        sampling_rate,
+        bandpass=config["bandpass"],
+        notch=config["notch"],
+        notch_width=config["notch_width"],
+    )
+    start = int(
+        (ONLINE_FILTER_LENGTH - (IMAGERY_PERIOD - TRIAL_OFFSET)) * sampling_rate
+    )
+    end = start + config["imagery_window"] * sampling_rate
+    interest_period = filtered[:, :, start:end]
+
+    return interest_period
+

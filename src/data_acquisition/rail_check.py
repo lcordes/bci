@@ -15,7 +15,7 @@ parent_dir = str(Path(__file__).parents[1].resolve())
 sys.path.append(parent_dir)
 
 from classification.train_test_model import create_config
-from data_acquisition.preprocessing import preprocess_recording
+from data_acquisition.preprocessing import preprocess_openbci
 
 RAILED_THRESHOLD = 100000 
 
@@ -44,7 +44,7 @@ def railed_trials_count(epochs):
 def railed_heatmap(users, ax, config):
     railed_dat = np.zeros((len(users), config["n_channels"]))
     for i, name in enumerate(users):
-        X, y = preprocess_recording(name, config)
+        X, y = preprocess_openbci(name, config)
         railed_dat[i, :] = railed_trials_count(X)
     # Show the tick labels
     ax.xaxis.set_tick_params(labeltop=True)
