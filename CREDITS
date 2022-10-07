@@ -1,5 +1,5 @@
-The benchmark data set used for comparison in several analyses was made publicly available in the fourth
-BCI competition (2008) as data set 2a (https://www.bbci.de/competition/iv/).
+The benchmark data set used for comparison in several analyses was made publicly available as data set 2a of the fourth
+BCI competition (https://www.bbci.de/competition/iv/).
 
 Euclidean alignment, the transfer learning approach chosen for this BCI was adapted from the journal
 article 'Transfer learning for brain–computer interfaces: A Euclidean space data alignment approach.' (He & Wu, 2019).

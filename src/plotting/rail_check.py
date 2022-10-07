@@ -10,12 +10,13 @@ from dotenv import load_dotenv
 
 load_dotenv()
 DATA_PATH = os.environ["DATA_PATH"]
+RESULTS_PATH = os.environ["RESULTS_PATH"]
 
-parent_dir = str(Path(__file__).parents[1].resolve())
-sys.path.append(parent_dir)
+src_dir = str(Path(__file__).parents[1].resolve())
+sys.path.append(src_dir)
 
-from classification.train_test_model import create_config
-from data_acquisition.preprocessing import preprocess_openbci
+from pipeline.utilities import create_config
+from pipeline.preprocessing import preprocess_recording, get_users
 
 RAILED_THRESHOLD = 100000 
 
@@ -41,21 +42,23 @@ def railed_trials_count(epochs):
     return railed
 
 
-def railed_heatmap(users, ax, config):
-    railed_dat = np.zeros((len(users), config["n_channels"]))
+def railed_heatmap(config, save=False):
+    fig = plt.figure()
+    ax = fig.add_subplot()
+    users = get_users(config)
+    results = np.zeros((len(users), len(config["channels"])))
     for i, name in enumerate(users):
-        X, y = preprocess_openbci(name, config)
-        railed_dat[i, :] = railed_trials_count(X)
-    # Show the tick labels
+        X, _ = preprocess_recording(name, config)
+        results[i, :] = railed_trials_count(X)
+    
+    # Adjust tick labels
     ax.xaxis.set_tick_params(labeltop=True)
-
-    # Hide the tick labels
     ax.xaxis.set_tick_params(labelbottom=False)
     x_ticks = config["channels"]
     labels = [u.replace("Training_session_", "")[:7] for u in users]
 
     sns.heatmap(
-        railed_dat,
+        results,
         ax=ax,
         annot=True,
         fmt="g",
@@ -64,13 +67,13 @@ def railed_heatmap(users, ax, config):
     )
     ax.set_title("Number of railed trials per recording per channel")
 
+    if save:
+        plt.savefig(f"{RESULTS_PATH}/diagnostics/{config['data_set']}_data_railed_channels.png", dpi=300)
+    else:
+        plt.show()
+
 
 if __name__ == "__main__":
 
-    dir = Path(f"{DATA_PATH}/recordings/training_data_collection")
-    users = natsorted([path.stem for path in dir.glob("*.hdf5")])
-    config = create_config(clf_specific={"shrinkage": "auto", "solver": "eigen"}, bandpass=None)
-    fig = plt.figure()
-    ax = fig.add_subplot()
-    railed_heatmap(users,ax, config)
-    plt.savefig("railed.png", dpi=300)
+    config = create_config({"data_set": "training", "bandpass": None, "notch": None})
+    railed_heatmap(config, save=True)

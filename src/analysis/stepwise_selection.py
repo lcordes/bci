@@ -5,7 +5,7 @@ import json
 parent_dir = str(Path(__file__).parents[1].resolve())
 sys.path.append(parent_dir)
 
-from classification.train_test_model import train_model, test_model, create_config
+from pipeline.utilities import train_model, test_model, create_config
 import numpy as np
 from natsort import natsorted
 import os

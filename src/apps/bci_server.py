@@ -1,10 +1,15 @@
 import argparse
 import numpy as np
 from time import time
+
+from pathlib import Path
+import sys
+src_dir = str(Path(__file__).parents[1].resolve())
+sys.path.append(src_dir)
 from communication.client_server import Server
 from data_acquisition.data_handler import OpenBCIHandler, RecordingHandler
-from data_acquisition.preprocessing import preprocess_trial
-from classification.train_test_model import load_model
+from preprocessing import preprocess_trial
+from utilities import load_model
 
 
 class BCIServer:
@@ -32,7 +37,7 @@ class BCIServer:
         if self.recording:
             raw = self.data_handler.get_current_data(label=command)
         else:
-            raw = self.data_handler.get_current_data(self.config["n_channels"])
+            raw = self.data_handler.get_current_data(n_channels=len(self.config["channels"])) 
         processed = preprocess_trial(raw, self.sampling_rate, self.config)
         features = self.extractor.transform(processed)
         probs = self.predictor.predict_probs(features)

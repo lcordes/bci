@@ -4,14 +4,14 @@ import numpy as np
 from random import randint, choice
 import json
 import os
+import h5py
 from dotenv import load_dotenv
 import sys
 from pathlib import Path
 
-parent_dir = str(Path(__file__).parents[1].resolve())
-sys.path.append(parent_dir)
-from data_acquisition.preprocessing import get_data
-import h5py
+src_dir = str(Path(__file__).parents[1].resolve())
+sys.path.append(src_dir)
+from pipeline.preprocessing import preprocess_recording
 
 load_dotenv()
 SERIAL_PORT = os.environ["SERIAL_PORT"]
@@ -30,11 +30,14 @@ def get_channel_map():
 
 
 class RecordingHandler:
-    def __init__(self, recording_name, config):
+    def __init__(self, user, config):
         self.config = config
-        self.recording, marker_data, _, self.sampling_rate = get_data(
-            recording_name, config["n_channels"]
-        )
+        
+        raw, events = preprocess_recording(user, config)
+        self.sampling_rate = raw.info["sfreq"]    
+        # self.recording, marker_data, _, self.sampling_rate = get_data( # TODO broken
+        #     recording_name, config["n_channels"]
+        # )
         self.trial_onsets = {}
         for num, label in zip([1, 2, 3], ["left", "right", "down"]):
             self.trial_onsets[label] = list(
@@ -87,7 +90,7 @@ class OpenBCIHandler:
             self.status = "no_connection"
         self.session_start = datetime.now().strftime("%d-%m-%Y_%H-%M-%S")
 
-    def get_current_data(self, n_channels):
+    def get_current_data(self, n_channels): 
         n_samples = int(self.info["sampling_rate"] * ONLINE_FILTER_LENGTH)
         data = self.board.get_current_board_data(n_samples)
 

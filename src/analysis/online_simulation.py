@@ -11,7 +11,7 @@ DATA_PATH = os.environ["DATA_PATH"]
 parent_dir = str(Path(__file__).parents[1].resolve())
 sys.path.append(parent_dir)
 from data_acquisition.data_handler import RecordingHandler
-from data_acquisition.preprocessing import preprocess_trial, preprocess_openbci
+from data_acquisition.preprocessing import preprocess_trial, preprocess_recording
 from classification.train_test_model import load_model
 from sklearn.metrics import confusion_matrix, accuracy_score
 
@@ -46,7 +46,7 @@ class Simulator:
         return prediction
 
     def predict_offline(self):
-        X, y = preprocess_openbci(self.recording, self.config)
+        X, y = preprocess_recording(self.recording, self.config)
         X_transformed = self.extractor.transform(X)
         acc = self.predictor.score(X_transformed, y)
         return acc
