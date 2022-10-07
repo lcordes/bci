@@ -31,32 +31,18 @@ def get_channel_map():
 
 class RecordingHandler:
     def __init__(self, user, config):
-        self.config = config
-        
-        raw, events = preprocess_recording(user, config)
-        self.sampling_rate = raw.info["sfreq"]    
-        # self.recording, marker_data, _, self.sampling_rate = get_data( # TODO broken
-        #     recording_name, config["n_channels"]
-        # )
-        self.trial_onsets = {}
-        for num, label in zip([1, 2, 3], ["left", "right", "down"]):
-            self.trial_onsets[label] = list(
-                np.argwhere(marker_data == num).flatten().astype(int)
-            )
+        self.config = config.copy()
+        self.config.update({"bandpass": None, "notch": None})
+        self.X, self.y = preprocess_recording(user, self.config)
+
 
     def get_current_data(self, label):
         """Return (ONLINE_FILTER_LENGTH) seconds of data of a randomly chosen trial
-        of the given label class, with ONLINE_FILTER_LENGTH - IMAGERY_PERIOD giving the trial onset"""
-        upper = int(self.sampling_rate * IMAGERY_PERIOD)
-        lower = int(self.sampling_rate * (ONLINE_FILTER_LENGTH - IMAGERY_PERIOD))
-
-        onset = choice(self.trial_onsets[label])
-        data = self.recording[:, (onset - lower) : (onset + upper)]
-        data = np.expand_dims(data, axis=0)
-        return data
-
-    def get_sampling_rate(self):
-        return self.sampling_rate
+        of the given label class (1, 2 or 3), with ONLINE_FILTER_LENGTH - IMAGERY_PERIOD giving the trial onset"""
+        trial_idx = choice([i for i in range(self.X.shape[0]) if self.y[i] == label])
+        data = self.X[trial_idx, :, :]
+        return np.expand_dims(data, axis=0)
+   
 
 
 class OpenBCIHandler:

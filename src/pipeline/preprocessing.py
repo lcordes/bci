@@ -92,7 +92,7 @@ def preprocess_benchmark(user, config):
     'EEG-Cz': 'Cz', 'EEG-7': 'C2', 'EEG-C4': 'C4', 'EEG-8': 'C6', 'EEG-9': 'CP3',
     'EEG-10': 'CP1', 'EEG-11': 'CPz', 'EEG-12': 'CP2', 'EEG-13': 'CP4', 'EEG-14': 'P1',
     'EEG-Pz': 'Pz', 'EEG-15': 'P2', 'EEG-16': 'POz',
-     'EOG-left': 'EOG-left', 'EOG-central': 'EOG-central', 'EOG-right': 'EOG-right'}
+    'EOG-left': 'EOG-left', 'EOG-central': 'EOG-central', 'EOG-right': 'EOG-right'}
     raw.rename_channels(channel_dict)
     
     # Extract label info
@@ -123,9 +123,7 @@ def preprocess_recording(user, config):
         raw.notch_filter(freqs=config["notch"], notch_widths=config["notch_width"])
    
     # Create epochs
-    tmin = TRIAL_OFFSET
-    tmax = tmin + config["imagery_window"]
-    epochs = mne.Epochs(raw, events, tmin=tmin, tmax=tmax, baseline=None, preload=True)
+    epochs = mne.Epochs(raw, events, tmin=config["tmin"], tmax=config["tmax"], baseline=None, preload=True)
     X = epochs.get_data()
     y = epochs.events[:, 2]
 
@@ -145,17 +143,19 @@ def preprocess_trial(data, sampling_rate, config):
     """Get data of length (ONLINE_FILTER_LENGTH) seconds, with
     ONLINE_FILTER_LENGTH - IMAGERY_PERIOD giving the trial onset,
     filter it and extract the interest period."""
-    filtered = notch_filter(
-        data, sampling_rate, freqs=config["notch"], notch_widths=config["notch_width"]
-    )
-    filtered = filter_data(
-        filtered, sampling_rate, l_freq=config["bandpass"][0], h_freq=config["bandpass"][1]
-    )
+    if config["notch"]:
+        data = notch_filter(
+            data, sampling_rate, freqs=config["notch"], notch_widths=config["notch_width"]
+        )
+    if config["bandpass"]:
+        data = filter_data(
+            data, sampling_rate, l_freq=config["bandpass"][0], h_freq=config["bandpass"][1]
+        )
     start = int(
         (ONLINE_FILTER_LENGTH - (IMAGERY_PERIOD - TRIAL_OFFSET)) * sampling_rate
     )
     end = start + config["imagery_window"] * sampling_rate
-    interest_period = filtered[:, :, start:end]
+    interest_period = data[:, :, start:end]
 
     return interest_period
 

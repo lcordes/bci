@@ -10,6 +10,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 DATA_PATH = os.environ["DATA_PATH"]
+TRIAL_OFFSET = float(os.environ["TRIAL_OFFSET"])
+IMAGERY_PERIOD = float(os.environ["IMAGERY_PERIOD"])
+ONLINE_FILTER_LENGTH = float(os.environ["ONLINE_FILTER_LENGTH"])
 
 def create_config(params):
     """Create a configuration object containing the given parameters and add default values for other
@@ -20,7 +23,8 @@ def create_config(params):
         clf_specific={},
         max_trials=None,
         n_classes=3,
-        csp_components=8
+        csp_components=8,
+        simulate=False,
     )
     if ("data_set", "benchmark") in params.items():
         data_set_specific = dict(
@@ -41,19 +45,21 @@ def create_config(params):
         )
     config.update(data_set_specific)
     config.update(params)
+
     config["description"] = ";".join(f"{param}={value}" for param, value in params.items())
+    config["tmin"] = TRIAL_OFFSET if not config["simulate"] else - (ONLINE_FILTER_LENGTH - IMAGERY_PERIOD)
+    trial_length = config["imagery_window"] if not config["simulate"] else ONLINE_FILTER_LENGTH
+    config["tmax"] = config["tmin"] + trial_length
+    
     return config
 
       
-def train_model(X, y, config, save=False):
+def train_model(X, y, config):
     extractor = CSPExtractor(config)
     X_transformed = extractor.fit_transform(X, y)
     classifier = CLASSIFIERS[config["model_type"]](config)
     classifier.fit(X_transformed, y)
 
-    if save:
-        save_model(extractor, classifier, config)
-    
     return extractor, classifier
 
 
@@ -72,8 +78,8 @@ def load_model(model_name):
         print("Model not found.")
 
 
-def save_model(extractor, predictor, config):
-    predictor.model.config = config
-    path = f"{DATA_PATH}/models/{config['model_name']}.pkl"
-    joblib.dump((extractor, predictor), path)
+def save_model(model, config, model_name):
+    model[1].model.config = config
+    path = f"{DATA_PATH}/models/{model_name}.pkl"
+    joblib.dump(model, path)
 

@@ -11,7 +11,7 @@ RESULTS_PATH = os.environ["RESULTS_PATH"]
 src_dir = str(Path(__file__).parents[1].resolve())
 sys.path.append(src_dir)
 
-from pipeline.utilities import create_config, train_model, test_model
+from pipeline.utilities import create_config, train_model, test_model, save_model
 from pipeline.preprocessing import preprocess_recording, get_users
 from pipeline.transfer_learning import get_align_mat, align
 
@@ -34,6 +34,20 @@ def process_data(config):
         y_all.append(y)
     return X_all, X_all_aligned, y_all, users
 
+def train_full_models(config):
+        X_all, X_all_aligned, y_all, _ = process_data(config)
+
+        y_combined = list(itertools.chain(*y_all)) 
+        X_combined = np.concatenate(X_all, axis=0)
+        X_combined_aligned = np.concatenate(X_all_aligned, axis=0)
+
+        # Train
+        base_model = train_model(X_combined, y_combined, config)
+        tf_model = train_model(X_combined_aligned, y_combined, config)
+        
+        save_model(base_model, config, f"{config['data_set']}_all_base")
+        save_model(tf_model, config, f"{config['data_set']}_all_tf")
+
 
 def between_classification(config, title, save=False):
         X_all, X_all_aligned, y_all, users = process_data(config)
@@ -48,7 +62,11 @@ def between_classification(config, title, save=False):
             # Train
             base_model = train_model(X_combined, y_combined, config)
             tf_model = train_model(X_combined_aligned, y_combined, config)
-        
+            
+            if save:
+                save_model(base_model, config, f"{user}_base")
+                save_model(tf_model, config, f"{user}_tf")
+
             # Test
             base_acc = test_model(X_all[u], y_all[u], base_model)
             tf_acc = test_model(X_all_aligned[u], y_all[u], tf_model)
@@ -108,8 +126,9 @@ def online_simulation(config, title, align_X=True, oversample=1, save=False):
 
 
 if __name__ == "__main__":
-    config = create_config({"data_set": "training", "clf_specific":{"shrinkage": "auto", "solver": "eigen"}})
+    config = create_config({"data_set": "benchmark", "clf_specific":{"shrinkage": "auto", "solver": "eigen"}})
     title = "Between classification (benchmark data, 8-30)"
-    between_classification(config, title)
-    online_simulation(config, title, align_X=False)
+    train_full_models(config)
+    #between_classification(config, title, save=True)
+    #online_simulation(config, title, align_X=False)
     
