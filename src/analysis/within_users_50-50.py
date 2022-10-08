@@ -51,7 +51,7 @@ def within_classification(config, title, save=False):
 
 
 if __name__ == "__main__":
-    config = create_config({"data_set": "benchmark", "clf_specific": {"shrinkage": "auto", "solver": "eigen"}})
+    config = create_config({"data_set": "benchmark"})
     title = "Within classification 50-50 split (benchmark data, 8-30, 100 reps)"
     within_classification(config, title)
     

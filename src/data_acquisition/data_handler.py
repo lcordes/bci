@@ -37,8 +37,9 @@ class RecordingHandler:
 
 
     def get_current_data(self, label):
-        """Return (ONLINE_FILTER_LENGTH) seconds of data of a randomly chosen trial
-        of the given label class (1, 2 or 3), with ONLINE_FILTER_LENGTH - IMAGERY_PERIOD giving the trial onset"""
+        """Return a randomly  chosen trial of the given label with shape 
+        (1, n_channels, ONLINE_FILTER_LENGTH * sampling_rate), where the trial
+        onset is given by  ONLINE_FILTER_LENGTH - IMAGERY_PERIOD """
         trial_idx = choice([i for i in range(self.X.shape[0]) if self.y[i] == label])
         data = self.X[trial_idx, :, :]
         return np.expand_dims(data, axis=0)
@@ -75,8 +76,12 @@ class OpenBCIHandler:
         except:
             self.status = "no_connection"
         self.session_start = datetime.now().strftime("%d-%m-%Y_%H-%M-%S")
+        self.session_end = None
 
     def get_current_data(self, n_channels): 
+        """Return the last ONLINE_FILTER_LENGTH seconds of data as an array of shape 
+        (1, n_channels, ONLINE_FILTER_LENGTH * sampling_rate)."""
+        
         n_samples = int(self.info["sampling_rate"] * ONLINE_FILTER_LENGTH)
         data = self.board.get_current_board_data(n_samples)
 
@@ -93,6 +98,10 @@ class OpenBCIHandler:
 
     def get_board_id(self):
         return self.board_id
+
+    def get_metadata(self):
+        self.compile_metadata()
+        return self.metadata
 
     def get_channel_info(self):
         return self.board.get_board_descr(self.board_id)

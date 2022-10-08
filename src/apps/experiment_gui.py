@@ -28,9 +28,8 @@ PYGAME_KEYS = {
 
 
 class ExperimentGUI:
-    def __init__(self, keep_log, fullscreen=True):
+    def __init__(self, fullscreen=True):
         pygame.init()
-        self.keep_log = keep_log
         if fullscreen:
             self.window = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
             self.x_size, self.y_size = self.window.get_size()

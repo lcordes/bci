@@ -1,5 +1,6 @@
 import numpy as np
 from random import choice
+from datetime import datetime
 import sys
 from pathlib import Path
 import os
@@ -27,12 +28,11 @@ class Simulator:
         self.sampling_rate = 250 if config["data_set"] == "benchmark" else 125
         self.labels = [1, 2, 3]
         if alignment:
+            print("Simulating calibration trials for euclidean alignment")
             self.simulate_calibration()
 
 
     def simulate_calibration(self):
-        print("Simulating calibration trials")
-
         trials = []
         for trial in range(15):
             data = self.data_handler.get_current_data(choice(self.labels))
@@ -42,23 +42,23 @@ class Simulator:
 
 
     def simulate_user(self, n=1000):
-        print(f"Simulating user {self.user}")
         label_hist = []
         pred_hist = []
+        pred_times = []
         for _ in range(n):
             label = choice(self.labels)
+            start = datetime.now()
             pred = self.get_prediction(label)
+            pred_times.append((datetime.now() - start).total_seconds())
             label_hist.append(label)
             pred_hist.append(pred)
-        return accuracy_score(label_hist, pred_hist)
+        return accuracy_score(label_hist, pred_hist), np.mean(pred_times)
 
     def get_prediction(self, label):
         data = self.data_handler.get_current_data(label)
         processed = preprocess_trial(data, self.sampling_rate, self.config)
-        
         if self.alignment:
             processed = align(processed, self.align_mat)
-
         features = self.extractor.transform(processed)
         prediction = int(self.predictor.predict(features))
         return prediction
@@ -74,15 +74,17 @@ class Simulator:
 
 
 if __name__ == "__main__":
-    config = create_config({"data_set": "benchmark", "simulate": True})
+    config = create_config({"data_set": "training", "simulate": True})
     n_iter = 1000
     users = get_users(config)
-    accs, sim_accs = [], []
+    accs, sim_accs, pred_times = [], [], []
     for user in users:
         sim = Simulator(user, config, f"{user}_tf", alignment=True)
-        sim_acc = sim.simulate_user(n=n_iter)
+        sim_acc, pred_time = sim.simulate_user(n=n_iter)
         acc = sim.predict_offline() 
         accs.append(acc)
         sim_accs.append(sim_acc)
-        print(f"Recording acc: {acc:.3f}, sim acc: {sim_acc:.3f}")
+        pred_times.append(pred_time)
+        print(f"{user}: recording acc: {acc:.3f}, sim acc: {sim_acc:.3f}\n")
     print(f"Overall recording acc: {np.mean(accs):.3f}, overall sim acc: {np.mean(sim_accs):.3f}")
+    print(f"Overall prediction processing time {np.mean(pred_times):.5f} seconds")

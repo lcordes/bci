@@ -82,11 +82,12 @@ def get_grid_configs(general, clf_specific):
 
 if __name__ == "__main__":
     manual_configs = [
-        create_config({"data_set": "training", "clf_specific": {"shrinkage": "auto", "solver": "eigen"}})
+        create_config({"data_set": "training"})
     ]
+    print(manual_configs)
 
     general = {"imagery_window": [3,4]}
     clf_specific = {"LDA": {"shrinkage": ["auto", None], "solver": ["eigen"]}}
     grid_configs = get_grid_configs(general, clf_specific) 
     
-    run_configs(grid_configs, save=True)
+    run_configs(manual_configs, save=True)

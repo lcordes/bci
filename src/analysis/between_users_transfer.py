@@ -14,6 +14,7 @@ sys.path.append(src_dir)
 from pipeline.utilities import create_config, train_model, test_model, save_model
 from pipeline.preprocessing import preprocess_recording, get_users
 from pipeline.transfer_learning import get_align_mat, align
+from scipy.stats import ttest_1samp, ttest_rel
 
 def exclude_idx(lis, idx):
     return lis[:idx] + lis[idx+1:]
@@ -78,6 +79,10 @@ def between_classification(config, title, save=False):
         results[0, len(users)] = np.mean(results[0, :len(users)])
         results[1, len(users)] = np.mean(results[1, :len(users)])
 
+        # T-tests
+        print(ttest_1samp(results[1, :len(users)], popmean=0.3333, alternative="greater"))
+        print(ttest_rel(results[0, :len(users)], results[1, :len(users)], alternative="less"))
+
         print(f"Overall base_acc = {results[0, len(users)]:.3f}, tf_acc = {results[1, len(users)]:.3f}")
         
         if save:
@@ -126,9 +131,9 @@ def online_simulation(config, title, align_X=True, oversample=1, save=False):
 
 
 if __name__ == "__main__":
-    config = create_config({"data_set": "benchmark", "clf_specific":{"shrinkage": "auto", "solver": "eigen"}})
-    title = "Between classification (benchmark data, 8-30)"
-    train_full_models(config)
-    #between_classification(config, title, save=True)
+    config = create_config({"data_set": "training"})
+    title = "Between classification (benchmark data, 8-30)" #TODO create title automatically
+    #train_full_models(config)
+    between_classification(config, title, save=True)
     #online_simulation(config, title, align_X=False)
     

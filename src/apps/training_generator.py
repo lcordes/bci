@@ -13,11 +13,11 @@ from data_acquisition.data_handler import OpenBCIHandler
 
 
 class DataGenerator(ExperimentGUI):
-    def __init__(self, keep_log, board_type, name, testing):
-        super().__init__(keep_log, fullscreen=(not testing))
+    def __init__(self, board_type, testing):
+        super().__init__(fullscreen=(not testing))
         pygame.display.set_caption("Evaluator")
         self.testing = testing
-        self.data_handler = OpenBCIHandler(board_type=board_type, recording_name=name)
+        self.data_handler = OpenBCIHandler(board_type=board_type)
         if self.data_handler.status == "no_connection":
             print(
                 "\n",
@@ -51,12 +51,6 @@ class DataGenerator(ExperimentGUI):
         }
         self.data_handler.add_metadata(metadata)
         self.data_handler.merge_trials_and_exit()
-
-        if self.log:
-            if self.keep_log:
-                data = pd.DataFrame.from_dict(self.log)
-                session_time = datetime.now().strftime("%d-%m-%Y_%H:%M:%S")
-                data.to_csv(f"data/recordings/Training_trials_{session_time}.csv")
 
     def run(self):
         while self.running:
@@ -174,12 +168,7 @@ class DataGenerator(ExperimentGUI):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--log",
-        help="write trial data to csv",
-        action="store_true",
-        default=False,
-    )
+
     parser.add_argument(
         "--board",
         dest="board_type",
@@ -191,14 +180,6 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "--name",
-        const=None,
-        nargs="?",
-        type=str,
-        help="Give explicit name for recording file to be created (e.g. for testing).",
-    )
-
-    parser.add_argument(
         "--testing",
         help="Skip demographics import and practice trials.",
         action="store_true",
@@ -207,9 +188,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     generator = DataGenerator(
-        keep_log=args.log,
         board_type=args.board_type,
-        name=args.name,
         testing=args.testing,
     )
     generator.run()

@@ -20,7 +20,7 @@ def create_config(params):
     config = dict(
         model_name="",
         model_type="LDA",
-        clf_specific={},
+        clf_specific={"shrinkage": "auto", "solver": "eigen"},
         max_trials=None,
         n_classes=3,
         csp_components=8,

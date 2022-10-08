@@ -45,10 +45,14 @@ def preprocess_openbci(user, config):
     assert 2 <= config["n_classes"] <= 3, "Invalid number of classes" 
     
     # Load data
-    path = f"{DATA_PATH}/recordings/{config['data_set']}/{user}.hdf5"
-    with h5py.File(path, "r") as file:
-        trials = file["data"][()]
-        metadata = dict(file["data"].attrs)
+    if isinstance(user, str):
+        path = f"{DATA_PATH}/recordings/{config['data_set']}/{user}.hdf5"
+        with h5py.File(path, "r") as file:
+            trials = file["data"][()]
+            metadata = dict(file["data"].attrs)
+        calibration = False
+    else:
+        trials, metadata, calibration = user # used for online model training during recording
 
     # Get board specific info
     board_info = BoardShim.get_board_descr(metadata["board_id"])
@@ -57,8 +61,9 @@ def preprocess_openbci(user, config):
     marker_channel = board_info["marker_channel"]
 
     # Disregard practice trials
-    practice_end = np.where(trials[marker_channel, :] == PRACTICE_END_MARKER)[0][0]
-    trials = trials[:, (practice_end + 1) :]
+    if not calibration:
+        practice_end = np.where(trials[marker_channel, :] == PRACTICE_END_MARKER)[0][0]
+        trials = trials[:, (practice_end + 1) :]
 
     # Extract events info
     marker_data = trials[marker_channel, :].flatten()
