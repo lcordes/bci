@@ -52,7 +52,7 @@ class DataGenerator(ExperimentGUI):
         self.data_handler.add_metadata(metadata)
         self.data_handler.merge_trials_and_exit()
 
-    def run(self):
+    def run(self): # TODO restructure
         while self.running:
             if self.state == "pause":
                 self.pause_menu()
@@ -120,7 +120,7 @@ class DataGenerator(ExperimentGUI):
 
             elif self.state == "arrow":
                 self.current_class = self.trials[self.trial - 1]
-                self.draw_arrow()
+                self.draw_arrow() # TODO pass arrow type directly
                 self.state = "imagine"
                 pygame.time.delay(2000)
 

@@ -101,20 +101,20 @@ class ExperimentGUI:
         for prob, col, loc in zip(probs, cols, locs):
             self.display_text(str(prob), col, loc, redraw=False)
 
-    def draw_arrow(self):
+    def draw_arrow(self, label, col=FRONT_COL):
         cx = self.center[0]  # center x-a-xis
         cy = self.center[1]  # center x-a-xis
         l = SHAPE_RADIUS * 2 // 3
         s = l * 5 // 6
-        if self.current_class == "down":
+        if label == "down":
             points = [(cx, cy + l), (cx - s, cy - l), (cx + s, cy - l)]
-        elif self.current_class == "left":
+        elif label == "left":
             points = [(cx - l, cy), (cx + l, cy - s), (cx + l, cy + s)]
-        elif self.current_class == "right":
+        elif label == "right":
             points = [(cx + l, cy), (cx - l, cy - s), (cx - l, cy + s)]
 
         self.window.fill(BACK_COL)
-        pygame.draw.polygon(self.window, FRONT_COL, points)
+        pygame.draw.polygon(self.window, col, points)
         pygame.display.update()
 
     def draw_circle(self):

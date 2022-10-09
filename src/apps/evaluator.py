@@ -1,5 +1,4 @@
 from experiment_gui import *
-from datetime import datetime
 import argparse
 import pygame
 from random import shuffle
@@ -11,10 +10,13 @@ sys.path.append(src_dir)
 
 from data_acquisition.data_handler import OpenBCIHandler, RecordingHandler
 from pipeline.utilities import load_model, train_model, create_config
-from pipeline.preprocessing import preprocess_recording
+from pipeline.preprocessing import preprocess_recording, preprocess_trial
 from pipeline.transfer_learning import get_align_mat, align
 
-instructions = [
+PRACTICE_TRIALS_PER_CLASS = 4
+CLASS_TRIALS_PER_BLOCK = 10
+
+INSTRUCTIONS = [
             "In the following trials you will be shown an arrow which indicates what movement you should imagine.",
             "",
             "Pointing left: squeeze with your left hand",
@@ -34,17 +36,21 @@ class Evaluator(ExperimentGUI):
         super().__init__(fullscreen=(not testing))
         pygame.display.set_caption("Evaluator")
         self.testing = testing
+        self.state = "calibration" if self.testing else "intro"
+        self.block ={"1": "baseline", "2": "tf"}
+        self.config = create_config({"data_set": "evaluation"})
+        self.trials = []
 
         if self.board_type == "recording":
             config = create_config({"data_set": "training", "simulate": True})
-            self.data_handler = RecordingHandler("u16", config)
+            self.data_handler = RecordingHandler("u16", config) # TODO make sure all data handler functions work with recording
             self.base_model = load_model("u16_base")
             self.tf_model = load_model("u16_tf")
         else:
             self.data_handler = OpenBCIHandler(board_type=board_type)
             self.base_model = load_model("training_all_base")
             self.tf_model = load_model("training_all_tf")
-                
+
         if self.data_handler.status == "no_connection":
             print("\n No headset connection, use '--board synthetic' for simulated data")
             self.running = False
@@ -52,11 +58,8 @@ class Evaluator(ExperimentGUI):
             print("Couldn't load demographics information.")
             self.running = False
 
-
-    def get_trial_sequence(trials_per_class):
-        sequence = CLASSES * trials_per_class
-        shuffle(sequence)
-        return sequence
+        self.n_channels = len(self.base_model[1].config["channels"])
+        self.sampling_rate = self.data_handler.get_sampling_rate()
 
 
     def run_welcome(self):
@@ -69,7 +72,6 @@ class Evaluator(ExperimentGUI):
 
 
     def run_demographics(self): 
-
         for category in ["participant number", "age", "gender"]:
             if self.running:
                 response = self.display_text_input(
@@ -77,19 +79,25 @@ class Evaluator(ExperimentGUI):
                 )
                 self.data_handler.add_metadata({category: response})
                 
-                # Determine counterbalance order based on participant number
+                # Switch block order based on participant number for counterbalancing
                 if category == "participant number":
-                    self.baseline_first = int(response) % 2 == 0 #TODO test if this works
+                    if int(response) % 2 == 0:
+                        self.block = {"1": "tf", "2": "baseline"}
 
 
     def get_current_recording(self, calibration):
-        config = create_config({"data_set": "evaluation"})
         session_data = self.data_handler.combine_trial_data()
         metadata = self.data_handler.get_metadata()
         user = (session_data, metadata, calibration) 
-        X, y = preprocess_recording(user, config)
-        return X, y, config
-    
+        X, y = preprocess_recording(user, self.config)
+        return X, y
+
+
+    def get_trial_sequence(trials_per_class):
+        sequence = CLASSES * trials_per_class
+        shuffle(sequence)
+        return sequence
+
 
     def calculate_align_mat(self): 
         X, _ , _ = self.get_current_recording(calibration=True)
@@ -97,112 +105,151 @@ class Evaluator(ExperimentGUI):
 
 
     def train_within_model(self): 
-        X, y, config = self.get_current_recording(calibration=False)
-        self.witin_model = train_model(X, y, config)
+        X, y = self.get_current_recording(calibration=False)
+        self.witin_model = train_model(X, y, self.config)
+
+
+    def get_prediction(self, model_type):
+        data = self.data_handler.get_current_data(self.n_channels)
+        processed = preprocess_trial(data, self.sampling_rate, self.config)
+        if model_type == "baseline":
+            extractor = self.base_model[0]
+            predictor = self.base_model[1]
+        elif model_type == "tf":
+            extractor = self.tf_model[0]
+            predictor = self.tf_model[1]
+            processed = align(processed, self.align_mat)
+        elif model_type == "within":
+            extractor = self.within_model[0]
+            predictor = self.within_model[1]
+
+        features = extractor.transform(processed)
+        num_pred = int(predictor.predict(features))
+        return CLASSES[num_pred -1]
+
 
     def text_break(self, text):
-        self.wait_for_space(text)
+        if self.running:
+            self.wait_for_space(text)
+
 
     def run_trial(self, label, feedback): 
         run_trial = True
+        self.trial_state = "fixdot"
+
         while self.running and run_trial:
-            if self.state == "pause":
+            if self.trial_state == "pause":
                 self.pause_menu()
                 self.pause = False
-                self.state = "fixdot"
+                self.trial_state = "fixdot"
 
-            elif self.state == "fixdot":
+            elif self.trial_state == "fixdot":
                 self.draw_circle()
-                self.state = "arrow"
+                self.trial_state = "arrow"
                 pygame.time.delay(1000)
                 self.play_sound("on_beep.wav")
                 pygame.time.delay(500)
 
-            elif self.state == "arrow":
-                self.current_class = self.trials[self.trial - 1]
-                self.draw_arrow()
-                self.state = "imagine"
+            elif self.trial_state == "arrow":
+                self.draw_arrow(label)
+                self.trial_state = "imagine"
                 pygame.time.delay(2000)
 
-            elif self.state == "imagine":
+            elif self.trial_state == "imagine":
                 self.data_handler.insert_marker(CLASSES.index(self.current_class) + 1)
                 self.draw_cross()
-                self.state = "trial_end"
+                self.trial_state = "feedback"
                 pygame.time.delay(IMAGERY_PERIOD)
                 self.data_handler.insert_marker(TRIAL_END_MARKER)
+    
+                if feedback:
+                    pred = self.get_prediction(model=feedback)
 
-            elif self.state == "trial_end":
+            elif self.trial_state == "feedback":
                 self.play_sound("off_beep.wav")
                 pygame.time.delay(500)
-                self.display_text("")
+                
+                if not feedback:
+                    self.display_text("")
+                    pred, classifier = None, None
+                else:
+                    col = GREEN if label == pred else RED
+                    self.draw_arrow(pred, col)
 
-                data = {
-                    "trial": self.trial,
+
+                results = { 
                     "instruction": self.current_class,
+                    "prediction": pred,
+                    "classifier": feedback
                 }
-                print(data)
+                print(results)
+                self.trials.append(results)
                 self.data_handler.save_trial()
                 self.run_trial = False
                  
-
                 pygame.time.delay(2500)
 
             self.check_events()
 
 
     def run(self):
-        while self.running: #TODO this currently doesnt get checked during the entire experiment
-            self.run_welcome()
-            self.run_demographics()
-            self.text_break(instructions)
+        quit_early=True
+        while self.running: 
+            
+            if self.state == "intro":
+                self.run_welcome()
+                self.run_demographics()
+                self.text_break(INSTRUCTIONS)
+                self.state = "calibration"
 
-            # Calibration/practice trials
-            trial_sequence = self.get_trial_sequence(trials_per_class=4)
-            for label in trial_sequence:
-                self.run_trial(label, feedback=None)
-            self.calculate_align_mat()
-            self.data_handler.insert_marker({PRACTICE_END_MARKER})
-            self.text_break("You finished the calibration trials! Press spacebar to begin with the experiment trials.")
+            elif self.state == "calibration":
+                trial_sequence = self.get_trial_sequence(trials_per_class=PRACTICE_TRIALS_PER_CLASS)
+                for label in trial_sequence:
+                    self.run_trial(label, feedback=None)
 
-            # Determine counterbalance order
-            if self.baseline_first:
-                block1_feedback, block2_feedback = "baseline", "tf"
-            else:
-                block1_feedback, block2_feedback = "tf", "baseline"
+                if self.running:
+                    self.calculate_align_mat()
+                    self.data_handler.insert_marker({PRACTICE_END_MARKER})
+                    self.text_break("You finished the calibration trials! Press spacebar to begin with the experiment trials.")
+                    self.state = "block1"
 
-            # Block 1
-            trial_sequence = self.get_trial_sequence(trials_per_class=10)
-            for label in trial_sequence:
-                self.run_trial(label, feedback=block1_feedback)
-            self.text_break("Block done! Take a breather and press spacebar to resume when you feel ready.")
+            elif self.state == "block1":
+                # Either tf or baseline classifer
+                trial_sequence = self.get_trial_sequence(trials_per_class=CLASS_TRIALS_PER_BLOCK)
+                for label in trial_sequence:
+                    self.run_trial(label, feedback=self.block["1"])
+                self.text_break("Block done! Take a breather and press spacebar to resume when you feel ready.")
+                self.state = "block2"
 
-            # Block 2
-            trial_sequence = self.get_trial_sequence(trials_per_class=10)
-            for label in trial_sequence:
-                self.run_trial(label, feedback=block2_feedback)
-            self.text_break("Block done! Relax a bit and then start the last block by pressing spacebar.")
+            elif self.state == "block2":
+                # Either tf or baseline classifer
+                trial_sequence = self.get_trial_sequence(trials_per_class=CLASS_TRIALS_PER_BLOCK)
+                for label in trial_sequence:
+                    self.run_trial(label, feedback=self.block["2"])
+                self.text_break("Block done! Relax a bit and then start the last block by pressing spacebar.")
+                self.state == "block3"
 
-            # Block 3 (Within classifier trained on block 1 and 2)
-            self.train_within_model()
-            trial_sequence = self.get_trial_sequence(trials_per_class=10)
-            for label in trial_sequence:
-                self.run_trial(label, feedback="within")
+            elif self.state == "block3":
+            # Within classifier trained on block 1 and 2
+                self.train_within_model()
+                trial_sequence = self.get_trial_sequence(trials_per_class=CLASS_TRIALS_PER_BLOCK)
+                for label in trial_sequence:
+                    self.run_trial(label, feedback="within")
 
-            # Experiment end 
-            text = ["Experiment done! Thank you for your participation.",
-            "Please press spacebar to finish and then call the experimenter."]       
-            self.text_break(text)
-            self.exit(quit_early=False)
+                text = ["Experiment done! Thank you for your participation.",
+                "Please press spacebar to finish and then call the experimenter."]       
+                self.text_break(text)
+                quit_early=False
+                self.running=False
 
+        if not self.testing or self.state == "intro":
+            self.exit(quit_early=quit_early)
         pygame.quit()
 
 
-    def exit(self, quit_early=True): #TODO update 
+    def exit(self, quit_early=True): 
         metadata = {
-            "trials_per_class": TRIALS_PER_CLASS,
-            "practice_trials": PRACTICE_TRIALS,
-            "trial_sequence": self.trials,
-            "break_trials": self.break_trials,
+            "trial_sequence": self.trials, #TODO test if storing list of dicts works
             "quit_early": quit_early,
         }
         self.data_handler.add_metadata(metadata)
