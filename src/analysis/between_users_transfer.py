@@ -46,8 +46,8 @@ def train_full_models(config):
         base_model = train_model(X_combined, y_combined, config)
         tf_model = train_model(X_combined_aligned, y_combined, config)
         
-        save_model(base_model, config, f"{config['data_set']}_all_base")
-        save_model(tf_model, config, f"{config['data_set']}_all_tf")
+        save_model(base_model, config, f"{config['data_set']}_base")
+        save_model(tf_model, config, f"{config['data_set']}_tf")
 
 
 def between_classification(config, title, save=False):
@@ -131,9 +131,9 @@ def online_simulation(config, title, align_X=True, oversample=1, save=False):
 
 
 if __name__ == "__main__":
-    config = create_config({"data_set": "training"})
+    config = create_config({"data_set": "benchmark"})
     title = "Between classification (benchmark data, 8-30)" #TODO create title automatically
-    #train_full_models(config)
-    between_classification(config, title, save=True)
+    train_full_models(config)
+    #between_classification(config, title, save=True)
     #online_simulation(config, title, align_X=False)
     

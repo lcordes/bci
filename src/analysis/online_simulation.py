@@ -34,7 +34,7 @@ class Simulator:
 
     def simulate_calibration(self):
         trials = []
-        for trial in range(15):
+        for _ in range(15):
             data = self.data_handler.get_current_data(choice(self.labels))
             trials.append(preprocess_trial(data, self.sampling_rate, self.config))
         X = np.concatenate(trials, axis=0)

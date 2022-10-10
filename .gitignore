@@ -7,6 +7,9 @@ legacy code
 *scratchpad.py
 test.py
 *.pkl
+!training_tf.pkl
+!training_base.pkl
+
 *.png
 *.hdf5
 *.gdf

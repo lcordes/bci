@@ -15,8 +15,8 @@ CLASSES = os.environ["CLASSES"].split(",")
 
 FRONT_COL = (255, 255, 255)  # white
 BACK_COL = (0, 0, 0)  # black
-GREEN = (0, 255, 0)
-RED = (255, 0, 0)
+GREEN = (0, 150, 0)
+RED = (150, 0, 0)
 SHAPE_RADIUS = 40
 LINE_SPACE = 45
 SHAPE_THICKNESS = 6
@@ -37,6 +37,7 @@ class ExperimentGUI:
             self.x_size = int(os.environ["X_SIZE"])
             self.y_size = int(os.environ["Y_SIZE"])
             self.window = pygame.display.set_mode((self.x_size, self.y_size))
+        self.move = self.y_size // 4
         self.center = (self.x_size // 2, self.y_size // 2)
         self.state = "start"
         self.font = pygame.font.Font("freesansbold.ttf", 26)
@@ -101,16 +102,22 @@ class ExperimentGUI:
         for prob, col, loc in zip(probs, cols, locs):
             self.display_text(str(prob), col, loc, redraw=False)
 
-    def draw_arrow(self, label, col=FRONT_COL):
+    def draw_arrow(self, label, col=FRONT_COL, move=False):
         cx = self.center[0]  # center x-a-xis
-        cy = self.center[1]  # center x-a-xis
+        cy = self.center[1]  # center y-a-xis
         l = SHAPE_RADIUS * 2 // 3
         s = l * 5 // 6
         if label == "down":
+            if move:
+                cy += self.move
             points = [(cx, cy + l), (cx - s, cy - l), (cx + s, cy - l)]
         elif label == "left":
+            if move:
+                cx -= self.move
             points = [(cx - l, cy), (cx + l, cy - s), (cx + l, cy + s)]
         elif label == "right":
+            if move:
+                cx += self.move
             points = [(cx + l, cy), (cx - l, cy - s), (cx - l, cy + s)]
 
         self.window.fill(BACK_COL)
@@ -132,23 +139,35 @@ class ExperimentGUI:
         music.set_volume(0.2)
         music.play()
 
-    def draw_cross(self):
+    def draw_cross(self, col=FRONT_COL, move=False):
         rad = SHAPE_RADIUS
         thick = SHAPE_THICKNESS
         self.window.fill(BACK_COL)
+        x = self.center[0]
+        y = self.center[1]
+
+        if move:
+            step = self.y_size // 4
+            if move == "left":
+                x -= step
+            elif move == "right":
+                x += step
+            else:
+                y += step
+
         bars = [
             pygame.Rect(
-                (self.center[0] - (thick // 2), (self.center[1] - (rad // 2))),
+                (x - (thick // 2), (y - (rad // 2))),
                 (thick, rad),
             ),
             pygame.Rect(
-                (self.center[0] - (rad // 2), (self.center[1] - (thick // 2))),
+                (x - (rad // 2), (y - (thick // 2))),
                 (rad, thick),
             ),
         ]
 
         for bar in bars:
-            pygame.draw.rect(self.window, FRONT_COL, bar)
+            pygame.draw.rect(self.window, col, bar)
         pygame.display.update()
 
     def wait_for_space(self, text):
@@ -178,7 +197,7 @@ class ExperimentGUI:
                 return "quit"
             elif event.type == pygame.KEYDOWN:
                 if event.key == PYGAME_KEYS["esc"]:
-                    self.state = "pause"
+                    self.pause = True
                     return "pause"
                 elif event.key == PYGAME_KEYS["space"]:
                     return "space"

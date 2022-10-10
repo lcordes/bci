@@ -2,6 +2,7 @@ from experiment_gui import *
 import argparse
 import pygame
 from random import shuffle
+import pandas as pd
 import sys
 from pathlib import Path
 
@@ -36,20 +37,21 @@ class Evaluator(ExperimentGUI):
         super().__init__(fullscreen=(not testing))
         pygame.display.set_caption("Evaluator")
         self.testing = testing
+        self.speed = 3 if testing else 1
         self.state = "calibration" if self.testing else "intro"
         self.block ={"1": "baseline", "2": "tf"}
         self.config = create_config({"data_set": "evaluation"})
         self.trials = []
 
-        if self.board_type == "recording":
+        if board_type == "recording":
             config = create_config({"data_set": "training", "simulate": True})
             self.data_handler = RecordingHandler("u16", config) # TODO make sure all data handler functions work with recording
             self.base_model = load_model("u16_base")
             self.tf_model = load_model("u16_tf")
         else:
             self.data_handler = OpenBCIHandler(board_type=board_type)
-            self.base_model = load_model("training_all_base")
-            self.tf_model = load_model("training_all_tf")
+            self.base_model = load_model("training_base")
+            self.tf_model = load_model("training_tf")
 
         if self.data_handler.status == "no_connection":
             print("\n No headset connection, use '--board synthetic' for simulated data")
@@ -58,8 +60,8 @@ class Evaluator(ExperimentGUI):
             print("Couldn't load demographics information.")
             self.running = False
 
-        self.n_channels = len(self.base_model[1].config["channels"])
-        self.sampling_rate = self.data_handler.get_sampling_rate()
+        self.n_channels = len(self.base_model[1].model.config["channels"])
+        self.sampling_rate = 125 #self.data_handler.get_sampling_rate()
 
 
     def run_welcome(self):
@@ -93,20 +95,22 @@ class Evaluator(ExperimentGUI):
         return X, y
 
 
-    def get_trial_sequence(trials_per_class):
+    def get_trial_sequence(self, trials_per_class):
         sequence = CLASSES * trials_per_class
         shuffle(sequence)
         return sequence
 
 
     def calculate_align_mat(self): 
-        X, _ , _ = self.get_current_recording(calibration=True)
-        self.align_mat = get_align_mat(X)
-
+        try:
+            X, y  = self.get_current_recording(calibration=True)
+            self.align_mat = get_align_mat(X)
+        except Exception as e:
+            print("Calculating alignment matrix failed, got error", e)
 
     def train_within_model(self): 
         X, y = self.get_current_recording(calibration=False)
-        self.witin_model = train_model(X, y, self.config)
+        self.within_model = train_model(X, y, self.config)
 
 
     def get_prediction(self, model_type):
@@ -138,7 +142,7 @@ class Evaluator(ExperimentGUI):
         self.trial_state = "fixdot"
 
         while self.running and run_trial:
-            if self.trial_state == "pause":
+            if self.pause:
                 self.pause_menu()
                 self.pause = False
                 self.trial_state = "fixdot"
@@ -146,48 +150,52 @@ class Evaluator(ExperimentGUI):
             elif self.trial_state == "fixdot":
                 self.draw_circle()
                 self.trial_state = "arrow"
-                pygame.time.delay(1000)
-                self.play_sound("on_beep.wav")
-                pygame.time.delay(500)
+                pygame.time.delay(1000//self.speed)
+                if not self.testing:
+                    self.play_sound("on_beep.wav")
+                pygame.time.delay(500//self.speed)
 
             elif self.trial_state == "arrow":
                 self.draw_arrow(label)
                 self.trial_state = "imagine"
-                pygame.time.delay(2000)
+                pygame.time.delay(2000//self.speed)
 
             elif self.trial_state == "imagine":
-                self.data_handler.insert_marker(CLASSES.index(self.current_class) + 1)
+                self.data_handler.insert_marker(CLASSES.index(label) + 1)
                 self.draw_cross()
                 self.trial_state = "feedback"
-                pygame.time.delay(IMAGERY_PERIOD)
+                pygame.time.delay(IMAGERY_PERIOD//self.speed)
                 self.data_handler.insert_marker(TRIAL_END_MARKER)
-    
-                if feedback:
-                    pred = self.get_prediction(model=feedback)
-
+                try:
+                    pred = self.get_prediction(model_type=feedback) if feedback else None
+                    clf = feedback
+                except Exception as e:
+                    pred = self.get_prediction(model_type="baseline") if feedback else None
+                    print(f"Trial {len(self.trials) + 1}: Getting prediction failed, defaulting to baseline model. Got error", e)
+                    clf = "baseline due to error"
             elif self.trial_state == "feedback":
-                self.play_sound("off_beep.wav")
-                pygame.time.delay(500)
+                if not self.testing:
+                    self.play_sound("off_beep.wav")
+                pygame.time.delay(500//self.speed)
                 
                 if not feedback:
                     self.display_text("")
-                    pred, classifier = None, None
                 else:
                     col = GREEN if label == pred else RED
-                    self.draw_arrow(pred, col)
+                    self.draw_cross(col, move=label)
 
 
                 results = { 
-                    "instruction": self.current_class,
+                    "instruction": label,
                     "prediction": pred,
-                    "classifier": feedback
+                    "classifier": clf
                 }
                 print(results)
                 self.trials.append(results)
                 self.data_handler.save_trial()
-                self.run_trial = False
+                run_trial = False
                  
-                pygame.time.delay(2500)
+                pygame.time.delay(2500//self.speed)
 
             self.check_events()
 
@@ -209,7 +217,7 @@ class Evaluator(ExperimentGUI):
 
                 if self.running:
                     self.calculate_align_mat()
-                    self.data_handler.insert_marker({PRACTICE_END_MARKER})
+                    self.data_handler.insert_marker(PRACTICE_END_MARKER)
                     self.text_break("You finished the calibration trials! Press spacebar to begin with the experiment trials.")
                     self.state = "block1"
 
@@ -227,22 +235,26 @@ class Evaluator(ExperimentGUI):
                 for label in trial_sequence:
                     self.run_trial(label, feedback=self.block["2"])
                 self.text_break("Block done! Relax a bit and then start the last block by pressing spacebar.")
-                self.state == "block3"
+                self.state = "block3"
 
             elif self.state == "block3":
             # Within classifier trained on block 1 and 2
-                self.train_within_model()
+                try:
+                    self.train_within_model()
+                    feedback = "within"
+                except Exception as e:
+                    print("Training within model failed, defaulting to base model. Got error", e)
+                    feedback = "baseline"
                 trial_sequence = self.get_trial_sequence(trials_per_class=CLASS_TRIALS_PER_BLOCK)
                 for label in trial_sequence:
-                    self.run_trial(label, feedback="within")
+                    self.run_trial(label, feedback=feedback)
 
                 text = ["Experiment done! Thank you for your participation.",
                 "Please press spacebar to finish and then call the experimenter."]       
                 self.text_break(text)
                 quit_early=False
                 self.running=False
-
-        if not self.testing or self.state == "intro":
+        if not self.state == "intro":
             self.exit(quit_early=quit_early)
         pygame.quit()
 
@@ -254,6 +266,9 @@ class Evaluator(ExperimentGUI):
         }
         self.data_handler.add_metadata(metadata)
         self.data_handler.merge_trials_and_exit()
+        df = pd.DataFrame(self.trials)
+        df["correct"] = df["instruction"] == df["prediction"]
+        print(df.groupby("classifier")["correct"].mean())
 
 
 if __name__ == "__main__":
