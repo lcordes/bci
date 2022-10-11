@@ -15,8 +15,8 @@ from pipeline.utilities import load_model, train_model, create_config
 from pipeline.preprocessing import preprocess_recording, preprocess_trial
 from pipeline.transfer_learning import get_align_mat, align
 
-PRACTICE_TRIALS_PER_CLASS = 1
-CLASS_TRIALS_PER_BLOCK = 1
+PRACTICE_TRIALS_PER_CLASS =4
+CLASS_TRIALS_PER_BLOCK = 10
 
 INSTRUCTIONS = [
             "In the following trials you will be shown an arrow which indicates what movement you should imagine.",
@@ -267,8 +267,9 @@ class Evaluator(ExperimentGUI):
                 self.running=False
         
         # Save to disk if at least one experiment trial was done
-        if len(self.trials["instruction"]) > CLASS_TRIALS_PER_BLOCK * 3:
+        if len(self.trials["instruction"]) > PRACTICE_TRIALS_PER_CLASS * 3:
             self.exit(quit_early=quit_early)
+            print(f"Total trials: {len(self.trials['instruction'])}")
         pygame.quit()
 
 
