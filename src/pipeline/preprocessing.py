@@ -48,11 +48,11 @@ def preprocess_openbci(user, config):
     if isinstance(user, str):
         path = f"{DATA_PATH}/recordings/{config['data_set']}/{user}.hdf5"
         with h5py.File(path, "r") as file:
-            trials = file["data"][()]
+            recording = file["data"][()]
             metadata = dict(file["data"].attrs)
         calibration = False
     else:
-        trials, metadata, calibration = user # used for online model training during recording
+        recording, metadata, calibration = user # used for online model training during recording
 
     # Get board specific info
     board_info = BoardShim.get_board_descr(metadata["board_id"])
@@ -60,13 +60,13 @@ def preprocess_openbci(user, config):
     eeg_channels = board_info["eeg_channels"]
     marker_channel = board_info["marker_channel"]
 
-    # Disregard practice trials
+    # Disregard practice/calibration trials
     if not calibration:
-        practice_end = np.where(trials[marker_channel, :] == PRACTICE_END_MARKER)[0][0]
-        trials = trials[:, (practice_end + 1) :]
+        practice_end = np.where(recording[marker_channel, :] == PRACTICE_END_MARKER)[0][0]
+        recording = recording[:, (practice_end + 1) :]
 
     # Extract events info
-    marker_data = trials[marker_channel, :].flatten()
+    marker_data = recording[marker_channel, :].flatten()
     onsets = np.argwhere(marker_data).flatten().astype(int)
     labels = marker_data[onsets].astype(int)
     events = np.zeros((len(labels), 3), dtype=int)
@@ -75,7 +75,7 @@ def preprocess_openbci(user, config):
     events = events[events[:, 2] != TRIAL_END_MARKER, :]
 
     # Create raw instance
-    eeg_data = trials[eeg_channels, :]
+    eeg_data = recording[eeg_channels, :]
     channel_names = list(metadata["channel_names"])
     info = mne.create_info(ch_names=channel_names, sfreq=sampling_rate, ch_types="eeg")
     info.set_montage("standard_1020")

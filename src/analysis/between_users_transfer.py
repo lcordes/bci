@@ -131,9 +131,9 @@ def online_simulation(config, title, align_X=True, oversample=1, save=False):
 
 
 if __name__ == "__main__":
-    config = create_config({"data_set": "benchmark"})
+    config = create_config({"data_set": "evaluation"})
     title = "Between classification (benchmark data, 8-30)" #TODO create title automatically
-    train_full_models(config)
-    #between_classification(config, title, save=True)
+    #train_full_models(config)
+    between_classification(config, title)
     #online_simulation(config, title, align_X=False)
     

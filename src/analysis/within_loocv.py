@@ -53,7 +53,7 @@ def run_configs(configs, save=False):
     
     if save:
         df = pd.DataFrame(results)
-        df.to_csv(f"{RESULTS_PATH}/within_loocv/config_results_{datetime.now().strftime('%d-%m-%Y_%H-%M')}")
+        df.to_csv(f"{RESULTS_PATH}/within_loocv/config_results_{datetime.now().strftime('%d-%m-%Y_%H-%M')}.csv")
 
 def get_grid_configs(general, clf_specific):
     permutations = []
@@ -82,7 +82,7 @@ def get_grid_configs(general, clf_specific):
 
 if __name__ == "__main__":
     manual_configs = [
-        create_config({"data_set": "training"})
+        create_config({"data_set": "evaluation"})
     ]
     print(manual_configs)
 

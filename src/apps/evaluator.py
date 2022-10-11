@@ -2,6 +2,7 @@ from experiment_gui import *
 import argparse
 import pygame
 from random import shuffle
+import numpy as np
 import pandas as pd
 import sys
 from pathlib import Path
@@ -14,23 +15,30 @@ from pipeline.utilities import load_model, train_model, create_config
 from pipeline.preprocessing import preprocess_recording, preprocess_trial
 from pipeline.transfer_learning import get_align_mat, align
 
-PRACTICE_TRIALS_PER_CLASS = 4
-CLASS_TRIALS_PER_BLOCK = 10
+PRACTICE_TRIALS_PER_CLASS = 1
+CLASS_TRIALS_PER_BLOCK = 1
 
 INSTRUCTIONS = [
             "In the following trials you will be shown an arrow which indicates what movement you should imagine.",
             "",
-            "Pointing left: squeeze with your left hand",
-            "Pointing right: squeeze with your right hand",
-            "Pointing down: curl your feet",
+            "Pointing left: Imagine squeezing with your left hand",
+            "Pointing right: Imagine squeezing with your right hand",
+            "Pointing down: Imagine curling your feet",
             "",
             "You will then be presented with a fixation cross.",
             "While it is on screen, keep your eyes centered on the cross and perform the imagined movement.",
             "Once it disappears you can relax until the next trial starts.",
             "",
-            "We will now begin with some practical trials to get you familiar with the experiment.",
+            "We will now begin with some calibration trials to adapt the experiment to your individual characteristics.",
             "Press spacebar to continue.",
         ]
+
+AFTER_CALIBRATION = [
+    "You finished the calibration trials!",  
+    "From now on you will see how your imagined movement was classified after each trial.",
+    "Remember that wrong classifications are the classifier's fault, not yours.",
+    "Please press spacebar to begin with the experiment trials."
+]
 
 class Evaluator(ExperimentGUI):
     def __init__(self, board_type, testing):
@@ -41,11 +49,11 @@ class Evaluator(ExperimentGUI):
         self.state = "calibration" if self.testing else "intro"
         self.block ={"1": "baseline", "2": "tf"}
         self.config = create_config({"data_set": "evaluation"})
-        self.trials = []
+        self.trials = {"instruction": [], "prediction": [], "classifier": []}
 
         if board_type == "recording":
             config = create_config({"data_set": "training", "simulate": True})
-            self.data_handler = RecordingHandler("u16", config) # TODO make sure all data handler functions work with recording
+            self.data_handler = RecordingHandler("u16", config) # TODO fully implemented recording or delete
             self.base_model = load_model("u16_base")
             self.tf_model = load_model("u16_tf")
         else:
@@ -61,7 +69,8 @@ class Evaluator(ExperimentGUI):
             self.running = False
 
         self.n_channels = len(self.base_model[1].model.config["channels"])
-        self.sampling_rate = 125 #self.data_handler.get_sampling_rate()
+        self.sampling_rate = 125 if board_type == "synthetic" else self.data_handler.get_sampling_rate()
+        print(f"Sampling rate: {self.sampling_rate}")
 
 
     def run_welcome(self):
@@ -171,7 +180,7 @@ class Evaluator(ExperimentGUI):
                     clf = feedback
                 except Exception as e:
                     pred = self.get_prediction(model_type="baseline") if feedback else None
-                    print(f"Trial {len(self.trials) + 1}: Getting prediction failed, defaulting to baseline model. Got error", e)
+                    print(f"Trial {len(self.trials['instruction']) + 1}: Getting prediction failed, defaulting to baseline model. Got error", e)
                     clf = "baseline due to error"
             elif self.trial_state == "feedback":
                 if not self.testing:
@@ -184,14 +193,11 @@ class Evaluator(ExperimentGUI):
                     col = GREEN if label == pred else RED
                     self.draw_cross(col, move=label)
 
+                self.trials["instruction"].append(label)
+                self.trials["prediction"].append(pred)
+                self.trials["classifier"].append(clf)
 
-                results = { 
-                    "instruction": label,
-                    "prediction": pred,
-                    "classifier": clf
-                }
-                print(results)
-                self.trials.append(results)
+                print(f"Trial {len(self.trials['instruction'])}: Instruction: {label}, prediction: {pred}, classifier: {clf}")
                 self.data_handler.save_trial()
                 run_trial = False
                  
@@ -218,8 +224,9 @@ class Evaluator(ExperimentGUI):
                 if self.running:
                     self.calculate_align_mat()
                     self.data_handler.insert_marker(PRACTICE_END_MARKER)
-                    self.text_break("You finished the calibration trials! Press spacebar to begin with the experiment trials.")
+                    self.text_break(AFTER_CALIBRATION)
                     self.state = "block1"
+                    print("Calibration done")
 
             elif self.state == "block1":
                 # Either tf or baseline classifer
@@ -228,6 +235,7 @@ class Evaluator(ExperimentGUI):
                     self.run_trial(label, feedback=self.block["1"])
                 self.text_break("Block done! Take a breather and press spacebar to resume when you feel ready.")
                 self.state = "block2"
+                print("Block 1 done")
 
             elif self.state == "block2":
                 # Either tf or baseline classifer
@@ -236,6 +244,8 @@ class Evaluator(ExperimentGUI):
                     self.run_trial(label, feedback=self.block["2"])
                 self.text_break("Block done! Relax a bit and then start the last block by pressing spacebar.")
                 self.state = "block3"
+                print("Block 2 done")
+
 
             elif self.state == "block3":
             # Within classifier trained on block 1 and 2
@@ -243,32 +253,38 @@ class Evaluator(ExperimentGUI):
                     self.train_within_model()
                     feedback = "within"
                 except Exception as e:
-                    print("Training within model failed, defaulting to base model. Got error", e)
+                    print("Training within model failed, defaulting to base model. Got error:", e)
                     feedback = "baseline"
                 trial_sequence = self.get_trial_sequence(trials_per_class=CLASS_TRIALS_PER_BLOCK)
                 for label in trial_sequence:
                     self.run_trial(label, feedback=feedback)
 
+                print("Block 3 done")
                 text = ["Experiment done! Thank you for your participation.",
                 "Please press spacebar to finish and then call the experimenter."]       
                 self.text_break(text)
                 quit_early=False
                 self.running=False
-        if not self.state == "intro":
+        
+        # Save to disk if at least one experiment trial was done
+        if len(self.trials["instruction"]) > CLASS_TRIALS_PER_BLOCK * 3:
             self.exit(quit_early=quit_early)
         pygame.quit()
 
 
     def exit(self, quit_early=True): 
         metadata = {
-            "trial_sequence": self.trials, #TODO test if storing list of dicts works
-            "quit_early": quit_early,
+            "instruction_hist": np.array(self.trials["instruction"], dtype="S"), 
+            "prediction_hist": np.array(self.trials["prediction"], dtype="S"), 
+            "classifier_hist": np.array(self.trials["classifier"], dtype="S"), 
+            "quit_early": quit_early
         }
         self.data_handler.add_metadata(metadata)
         self.data_handler.merge_trials_and_exit()
-        df = pd.DataFrame(self.trials)
-        df["correct"] = df["instruction"] == df["prediction"]
-        print(df.groupby("classifier")["correct"].mean())
+        if self.trials:
+            df = pd.DataFrame(self.trials)
+            df["correct"] = df["instruction"] == df["prediction"]
+            print(df.groupby("classifier")["correct"].mean())
 
 
 if __name__ == "__main__":
@@ -285,7 +301,7 @@ if __name__ == "__main__":
 
     parser.add_argument(
         "--testing",
-        help="Skip demographics import and practice trials.",
+        help="Skip demographics and run experiment at faster speed",
         action="store_true",
         default=False,
     )

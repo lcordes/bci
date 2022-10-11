@@ -8,6 +8,7 @@ import h5py
 from dotenv import load_dotenv
 import sys
 from pathlib import Path
+from time import sleep
 
 src_dir = str(Path(__file__).parents[1].resolve())
 sys.path.append(src_dir)
@@ -96,6 +97,16 @@ class OpenBCIHandler:
     def get_sampling_rate(self):
         return self.info["sampling_rate"]
 
+    def test_real_sampling_rate(self):      
+        self.insert_marker(20)
+        sleep(3)
+        self.insert_marker(20)
+        sleep(0.5)
+        data = self.board.get_board_data()
+        markers = np.argwhere(data[self.info["marker_channel"], :])
+        print("Sampling rate approximately", (markers[1][0] - markers[0][0]) // 3)
+
+
     def get_board_id(self):
         return self.board_id
 
@@ -141,28 +152,19 @@ class OpenBCIHandler:
 
     def combine_trial_data(self):
         """Merge individual trial data into one file and add descriptives"""
-        for save in range(1, self.save_num + 1):
-            data = np.load(
-                f"{DATA_PATH}/recordings/tmp/#{self.session_id}_trial_{save}.npy"
-            )
 
-            if save == 1:
-                recording = data
-            else:
-                recording = np.append(recording, data, axis=1)
+        saves = [np.load(
+            f"{DATA_PATH}/recordings/tmp/#{self.session_id}_trial_{save}.npy") 
+            for save in range(1, self.save_num + 1)
+        ]
+        return np.concatenate(saves, axis=1)
 
-        if (
-            "trial_sequence" in self.metadata
-            and not len(self.metadata["trial_sequence"]) == self.save_num
-        ):
-            print("Experiment and handler trials seem to be incongruent.")
-        return recording
 
     def save_to_file(self, recording):
         if self.recording_name:
             file_path = f"{DATA_PATH}/recordings/{self.recording_name}"
         else:
-            file_path = f"{DATA_PATH}/recordings/Training_session_#{self.session_id}_{self.session_end}"
+            file_path = f"{DATA_PATH}/recordings/{self.session_end}_training_session_#{self.session_id}_"
 
         self.compile_metadata()
         with h5py.File(f"{file_path}.hdf5", "w") as file:
@@ -171,19 +173,22 @@ class OpenBCIHandler:
 
     def merge_trials_and_exit(self):
         """Stop data stream and attempt to merge trial data files"""
-        self.board.stop_stream()
-        self.board.release_session()
+        try:
+            self.board.stop_stream()
+            self.board.release_session()
+        except Exception as e:
+            print("Error releasing board session:", e)
         self.session_end = datetime.now().strftime("%d-%m-%Y_%H-%M-%S")
 
         if self.save_num > 0:
-            try:
-                recording = self.combine_trial_data()
-                self.save_to_file(recording)
-                print(
-                    f"Successfully aggregated session #{self.session_id} recording file."
-                )
-            except Exception as e:
-                print("Couldn't aggregate tmp file, got error:", e)
+            #try:
+            recording = self.combine_trial_data()
+            self.save_to_file(recording)
+            print(
+                f"Successfully aggregated session #{self.session_id} recording file."
+            )
+            #except Exception as e:
+             #   print("Got error when aggregating tmp files:", e)
 
     def clean_tmp(self):
         path = f"{DATA_PATH}/recordings/tmp/"
