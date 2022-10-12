@@ -13,7 +13,6 @@ from time import sleep
 src_dir = str(Path(__file__).parents[1].resolve())
 sys.path.append(src_dir)
 from pipeline.preprocessing import preprocess_recording
-from pipeline.utilities import create_config
 
 load_dotenv()
 SERIAL_PORT = os.environ["SERIAL_PORT"]
@@ -49,7 +48,7 @@ class RecordingHandler:
 
 
 class OpenBCIHandler:
-    def __init__(self, board_type, config):
+    def __init__(self, board_type):
         self.clean_tmp()
         self.board_type = board_type
         params = BrainFlowInputParams()
@@ -69,10 +68,6 @@ class OpenBCIHandler:
         self.save_num = 0
         self.session_id = randint(100000, 999999)
         self.channel_map = get_channel_map()
-        relevant_channels = config["channels"]
-        self.channel_indices = [int(key) for key, value in self.channel_map.items() if value in relevant_channels]
-        print(self.channel_indices)
-
         self.metadata = {}
         try:
             self.board.prepare_session()
@@ -85,10 +80,10 @@ class OpenBCIHandler:
 
     def get_current_data(self): 
         """Return the last ONLINE_FILTER_LENGTH seconds of data as an array of shape 
-        (n_channels, ONLINE_FILTER_LENGTH * sampling_rate)."""
+        (n_eeg_channels, ONLINE_FILTER_LENGTH * sampling_rate)."""
         
         n_samples = int(self.info["sampling_rate"] * ONLINE_FILTER_LENGTH)
-        data = self.board.get_current_board_data(n_samples)[self.channel_indices, :]
+        data = self.board.get_current_board_data(n_samples)[self.info["eeg_channels"], :]
         return np.expand_dims(data, axis=0)
         
     def insert_marker(self, marker):
@@ -138,7 +133,6 @@ class OpenBCIHandler:
         self.metadata["session_start"] = self.session_start
         self.metadata["session_end"] = self.session_end
         self.metadata["channel_names"] = list(self.channel_map.values())
-        print("Channel config: ", self.metadata["channel_names"])
 
     def add_metadata(self, data):
         self.metadata.update(data)
@@ -163,8 +157,8 @@ class OpenBCIHandler:
 
     def save_to_file(self, recording):
         file_path = f"{DATA_PATH}/recordings/{self.session_end}_training_session_#{self.session_id}_"
-
         self.compile_metadata()
+
         with h5py.File(f"{file_path}.hdf5", "w") as file:
             d = file.create_dataset("data", data=recording)
             d.attrs.update(self.metadata)
@@ -179,14 +173,14 @@ class OpenBCIHandler:
         self.session_end = datetime.now().strftime("%d-%m-%Y_%H-%M-%S")
 
         if self.save_num > 0:
-            #try:
-            recording = self.combine_trial_data()
-            self.save_to_file(recording)
-            print(
-                f"Successfully aggregated session #{self.session_id} recording file."
-            )
-            #except Exception as e:
-             #   print("Got error when aggregating tmp files:", e)
+            try:
+                recording = self.combine_trial_data()
+                self.save_to_file(recording)
+                print(
+                    f"Successfully aggregated session #{self.session_id} recording file."
+                )
+            except Exception as e:
+                print("Got error when aggregating tmp files:", e)
 
     def clean_tmp(self):
         path = f"{DATA_PATH}/recordings/tmp/"

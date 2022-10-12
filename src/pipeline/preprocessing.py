@@ -153,10 +153,15 @@ def preprocess_recording(user, config):
     return X, y
 
 
-def preprocess_trial(data, sampling_rate, config):
+def preprocess_trial(data, sampling_rate, channel_names, config):
     """Get data of length (ONLINE_FILTER_LENGTH) seconds, with
     ONLINE_FILTER_LENGTH - IMAGERY_PERIOD giving the trial onset,
     filter it and extract the interest period."""
+
+    # Pick channel subset
+    channel_idx = [i for i, channel in enumerate(channel_names) if channel in config["channels"]]
+    
+    # Filter
     if config["notch"]:
         data = notch_filter(
             data, sampling_rate, freqs=config["notch"], notch_widths=config["notch_width"]
@@ -165,11 +170,13 @@ def preprocess_trial(data, sampling_rate, config):
         data = filter_data(
             data, sampling_rate, l_freq=config["bandpass"][0], h_freq=config["bandpass"][1]
         )
+
+    # Epoch
     start = int(
         (ONLINE_FILTER_LENGTH - (IMAGERY_PERIOD - TRIAL_OFFSET)) * sampling_rate
     )
     end = start + config["imagery_window"] * sampling_rate
-    interest_period = data[:, :, start:end]
+    interest_period = data[:, channel_idx, start:end]
 
     return interest_period
 

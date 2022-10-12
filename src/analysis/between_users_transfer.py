@@ -35,7 +35,7 @@ def process_data(config):
         y_all.append(y)
     return X_all, X_all_aligned, y_all, users
 
-def train_full_models(config):
+def train_full_models(config, title=None):
         X_all, X_all_aligned, y_all, _ = process_data(config)
 
         y_combined = list(itertools.chain(*y_all)) 
@@ -45,9 +45,11 @@ def train_full_models(config):
         # Train
         base_model = train_model(X_combined, y_combined, config)
         tf_model = train_model(X_combined_aligned, y_combined, config)
-        
-        save_model(base_model, config, f"{config['data_set']}_base")
-        save_model(tf_model, config, f"{config['data_set']}_tf")
+        if not title:
+            title = config['data_set']
+
+        save_model(base_model, config, f"{title}_base")
+        save_model(tf_model, config, f"{title}_tf")
 
 
 def between_classification(config, title, save=False):
@@ -131,9 +133,9 @@ def online_simulation(config, title, align_X=True, oversample=1, save=False):
 
 
 if __name__ == "__main__":
-    config = create_config({"data_set": "evaluation"})
+    config = create_config({"data_set": "training"})
     title = "Between classification (benchmark data, 8-30)" #TODO create title automatically
-    #train_full_models(config)
+    #train_full_models(config, title="retrain")
     between_classification(config, title)
     #online_simulation(config, title, align_X=False)
     

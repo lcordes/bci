@@ -10,10 +10,11 @@ from pathlib import Path
 src_dir = str(Path(__file__).parents[1].resolve())
 sys.path.append(src_dir)
 
-from data_acquisition.data_handler import OpenBCIHandler, RecordingHandler
+from data_acquisition.data_handler import OpenBCIHandler
 from pipeline.utilities import load_model, train_model, create_config
 from pipeline.preprocessing import preprocess_recording, preprocess_trial
 from pipeline.transfer_learning import get_align_mat, align
+from analysis.between_users_transfer import train_full_models
 
 PRACTICE_TRIALS_PER_CLASS = 4
 CLASS_TRIALS_PER_BLOCK = 10
@@ -46,20 +47,22 @@ class Evaluator(ExperimentGUI):
         pygame.display.set_caption("Evaluator")
         self.testing = testing
         self.speed = 3 if testing else 1
-        self.state = "calibration" if self.testing else "intro"
         self.block ={"1": "baseline", "2": "tf"}
-        self.config = create_config({"data_set": "evaluation"})
+        # Edit for channel subset: "channels": ["CP1", "C3", "FC1", "Cz", "FC2", "C4", "CP2", "Fpz"]
+        self.config = create_config({"data_set": "evaluation"}) 
+        
+        if len(self.config["channels"]) < 8:
+            self.state = "retrain"
+        elif self.testing:
+            self.state = "calibration"
+        else:
+            self.state = "intro"
+        
         self.trials = {"instruction": [], "prediction": [], "classifier": []}
 
-        if board_type == "recording":
-            config = create_config({"data_set": "training", "simulate": True})
-            self.data_handler = RecordingHandler("u16", config) # TODO fully implemented recording or delete
-            self.base_model = load_model("u16_base")
-            self.tf_model = load_model("u16_tf")
-        else:
-            self.data_handler = OpenBCIHandler(board_type=board_type)
-            self.base_model = load_model("training_base")
-            self.tf_model = load_model("training_tf")
+        self.data_handler = OpenBCIHandler(board_type=board_type)
+        self.base_model = load_model("training_base")
+        self.tf_model = load_model("training_tf")
 
         if self.data_handler.status == "no_connection":
             print("\n No headset connection, use '--board synthetic' for simulated data")
@@ -68,7 +71,7 @@ class Evaluator(ExperimentGUI):
             print("Couldn't load demographics information.")
             self.running = False
 
-        self.n_channels = len(self.base_model[1].model.config["channels"])
+        self.channel_names = self.data_handler.get_metadata()["channel_names"]
         self.sampling_rate = 125 if board_type == "synthetic" else self.data_handler.get_sampling_rate()
         print(f"Sampling rate: {self.sampling_rate}")
 
@@ -117,14 +120,15 @@ class Evaluator(ExperimentGUI):
         except Exception as e:
             print("Calculating alignment matrix failed, got error", e)
 
+
     def train_within_model(self): 
         X, y = self.get_current_recording(calibration=False)
         self.within_model = train_model(X, y, self.config)
 
 
     def get_prediction(self, model_type):
-        data = self.data_handler.get_current_data(self.n_channels)
-        processed = preprocess_trial(data, self.sampling_rate, self.config)
+        data = self.data_handler.get_current_data()
+        processed = preprocess_trial(data, self.sampling_rate, self.channel_names, self.config)
         if model_type == "baseline":
             extractor = self.base_model[0]
             predictor = self.base_model[1]
@@ -140,6 +144,15 @@ class Evaluator(ExperimentGUI):
         num_pred = int(predictor.predict(features))
         return CLASSES[num_pred -1]
 
+
+    def retrain_classifiers(self):
+        config = self.config.copy()
+        config["data_set"] = "training"
+        train_full_models(config, title="retrain")
+        self.base_model = load_model("retrain_base")
+        self.tf_model = load_model("retrain_tf")
+        print(f"Retrained classifiers to use only channels {self.config['channels']}")
+        self.play_sound("on_beep.wav")
 
     def text_break(self, text):
         if self.running:
@@ -180,6 +193,7 @@ class Evaluator(ExperimentGUI):
                     clf = feedback
                 except Exception as e:
                     pred = self.get_prediction(model_type="baseline") if feedback else None
+                    print(pred)
                     print(f"Trial {len(self.trials['instruction']) + 1}: Getting prediction failed, defaulting to baseline model. Got error", e)
                     clf = "baseline due to error"
             elif self.trial_state == "feedback":
@@ -191,7 +205,7 @@ class Evaluator(ExperimentGUI):
                     self.display_text("")
                 else:
                     col = GREEN if label == pred else RED
-                    self.draw_cross(col, move=label)
+                    self.draw_cross(col, move=pred)
 
                 self.trials["instruction"].append(label)
                 self.trials["prediction"].append(pred)
@@ -210,7 +224,13 @@ class Evaluator(ExperimentGUI):
         quit_early=True
         while self.running: 
             
-            if self.state == "intro":
+            if self.state == "retrain":
+                self.display_text(f"Retraining classifiers to use only {self.config['channels']}")
+                self.retrain_classifiers()
+                self.state = "intro"
+            
+            
+            elif self.state == "intro":
                 self.run_welcome()
                 self.run_demographics()
                 self.text_break(INSTRUCTIONS)
@@ -251,13 +271,11 @@ class Evaluator(ExperimentGUI):
             # Within classifier trained on block 1 and 2
                 try:
                     self.train_within_model()
-                    feedback = "within"
                 except Exception as e:
-                    print("Training within model failed, defaulting to base model. Got error:", e)
-                    feedback = "baseline"
+                    print("Training within model failed, got error:", e)
                 trial_sequence = self.get_trial_sequence(trials_per_class=CLASS_TRIALS_PER_BLOCK)
                 for label in trial_sequence:
-                    self.run_trial(label, feedback=feedback)
+                    self.run_trial(label, feedback="within")
 
                 print("Block 3 done")
                 text = ["Experiment done! Thank you for your participation.",
@@ -278,6 +296,7 @@ class Evaluator(ExperimentGUI):
             "instruction_hist": np.array(self.trials["instruction"], dtype="S"), 
             "prediction_hist": np.array(self.trials["prediction"], dtype="S"), 
             "classifier_hist": np.array(self.trials["classifier"], dtype="S"), 
+            "used_channels": np.array(self.config['channels'], dtype="S"), 
             "quit_early": quit_early
         }
         self.data_handler.add_metadata(metadata)
