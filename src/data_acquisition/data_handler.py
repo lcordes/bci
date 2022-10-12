@@ -13,6 +13,7 @@ from time import sleep
 src_dir = str(Path(__file__).parents[1].resolve())
 sys.path.append(src_dir)
 from pipeline.preprocessing import preprocess_recording
+from pipeline.utilities import create_config
 
 load_dotenv()
 SERIAL_PORT = os.environ["SERIAL_PORT"]
@@ -48,10 +49,9 @@ class RecordingHandler:
 
 
 class OpenBCIHandler:
-    def __init__(self, board_type, recording_name=None):
+    def __init__(self, board_type, config):
         self.clean_tmp()
         self.board_type = board_type
-        self.recording_name = recording_name
         params = BrainFlowInputParams()
         if board_type == "synthetic":
             self.board_id = BoardIds.SYNTHETIC_BOARD.value
@@ -69,6 +69,10 @@ class OpenBCIHandler:
         self.save_num = 0
         self.session_id = randint(100000, 999999)
         self.channel_map = get_channel_map()
+        relevant_channels = config["channels"]
+        self.channel_indices = [int(key) for key, value in self.channel_map.items() if value in relevant_channels]
+        print(self.channel_indices)
+
         self.metadata = {}
         try:
             self.board.prepare_session()
@@ -79,18 +83,14 @@ class OpenBCIHandler:
         self.session_start = datetime.now().strftime("%d-%m-%Y_%H-%M-%S")
         self.session_end = None
 
-    def get_current_data(self, n_channels): 
+    def get_current_data(self): 
         """Return the last ONLINE_FILTER_LENGTH seconds of data as an array of shape 
-        (1, n_channels, ONLINE_FILTER_LENGTH * sampling_rate)."""
+        (n_channels, ONLINE_FILTER_LENGTH * sampling_rate)."""
         
         n_samples = int(self.info["sampling_rate"] * ONLINE_FILTER_LENGTH)
-        data = self.board.get_current_board_data(n_samples)
-
-        # Disregard first row (packet num channel) and then keep the next n_channel rows
-        data = data[1 : (n_channels + 1), :]
-        data = np.expand_dims(data, axis=0)
-        return data
-
+        data = self.board.get_current_board_data(n_samples)[self.channel_indices, :]
+        return np.expand_dims(data, axis=0)
+        
     def insert_marker(self, marker):
         self.board.insert_marker(marker)
 
@@ -138,6 +138,7 @@ class OpenBCIHandler:
         self.metadata["session_start"] = self.session_start
         self.metadata["session_end"] = self.session_end
         self.metadata["channel_names"] = list(self.channel_map.values())
+        print("Channel config: ", self.metadata["channel_names"])
 
     def add_metadata(self, data):
         self.metadata.update(data)
@@ -161,10 +162,7 @@ class OpenBCIHandler:
 
 
     def save_to_file(self, recording):
-        if self.recording_name:
-            file_path = f"{DATA_PATH}/recordings/{self.recording_name}"
-        else:
-            file_path = f"{DATA_PATH}/recordings/{self.session_end}_training_session_#{self.session_id}_"
+        file_path = f"{DATA_PATH}/recordings/{self.session_end}_training_session_#{self.session_id}_"
 
         self.compile_metadata()
         with h5py.File(f"{file_path}.hdf5", "w") as file:

@@ -15,7 +15,7 @@ from pipeline.utilities import load_model, train_model, create_config
 from pipeline.preprocessing import preprocess_recording, preprocess_trial
 from pipeline.transfer_learning import get_align_mat, align
 
-PRACTICE_TRIALS_PER_CLASS =4
+PRACTICE_TRIALS_PER_CLASS = 4
 CLASS_TRIALS_PER_BLOCK = 10
 
 INSTRUCTIONS = [

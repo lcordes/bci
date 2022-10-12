@@ -38,6 +38,15 @@ def get_trials_subset(X, y, max_trials):
     return X[subset_idx,:,:], y[subset_idx]
 
 
+def test_recording_sampling_rate(marker_data):
+    lengths = []
+    for i, label in enumerate(list(marker_data)):
+        if label in [1,2,3]:
+            trial_start = i
+        if label == 9:
+            lengths.append((i - trial_start)//5)
+    print("Recording sampling rate:", np.mean(lengths))
+
 def preprocess_openbci(user, config):
     """Load a user recording from an openbci data set, convert data into raw format and extract
     marker events."""

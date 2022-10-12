@@ -1,7 +1,7 @@
 # Paths
 DATA_PATH=data
 RESULTS_PATH=results
-CHANNEL_MAP_PATH=architecture/channel_map.json
+CHANNEL_MAP_PATH=architecture/evaluation_channel_map.json
 
 # Experiment data URL
 DATA_URL=https://files.de-1.osf.io/v1/resources/fb9pu/providers/osfstorage/62d6e853c79a4c393b9e62b1/?zip=
@@ -22,4 +22,4 @@ Y_SIZE = 810
 # BCI Server settings
 ONLINE_FILTER_LENGTH = 10
 # Headset specific variables
-SERIAL_PORT=/dev/ttyUSB0 # serial port path on linux-based systems
+SERIAL_PORT=/dev/ttyUSB0 # serial port path on linux-based systems, use COM3 for windows
