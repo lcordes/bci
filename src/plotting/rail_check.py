@@ -75,5 +75,5 @@ def railed_heatmap(config, save=False):
 
 if __name__ == "__main__":
 
-    config = create_config({"data_set": "training", "bandpass": None, "notch": None})
+    config = create_config({"data_set": "evaluation", "bandpass": None, "notch": None})
     railed_heatmap(config, save=True)

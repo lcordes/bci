@@ -52,7 +52,7 @@ def train_full_models(config, title=None):
         save_model(tf_model, config, f"{title}_tf")
 
 
-def between_classification(config, title, save=False):
+def between_classification(train_config, test_config=None, title="between_transfer_results", save=False):
         X_all, X_all_aligned, y_all, users = process_data(config)
 
         results = np.zeros((2, len(users)+1))
@@ -134,8 +134,7 @@ def online_simulation(config, title, align_X=True, oversample=1, save=False):
 
 if __name__ == "__main__":
     config = create_config({"data_set": "training"})
-    title = "Between classification (benchmark data, 8-30)" #TODO create title automatically
     #train_full_models(config, title="retrain")
-    between_classification(config, title)
+    between_classification(config)
     #online_simulation(config, title, align_X=False)
     

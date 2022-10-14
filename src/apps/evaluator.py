@@ -48,8 +48,8 @@ class Evaluator(ExperimentGUI):
         self.testing = testing
         self.speed = 3 if testing else 1
         self.block ={"1": "baseline", "2": "tf"}
-        # Edit for channel subset: "channels": ["CP1", "C3", "FC1", "Cz", "FC2", "C4", "CP2", "Fpz"]
-        self.config = create_config({"data_set": "evaluation"}) 
+        channels = ["CP1", "C3", "FC1", "Cz", "FC2", "C4", "CP2", "Fpz"] #["CP1", "C3", "FC1", "Cz", "FC2", "C4", "CP2", "Fpz"]
+        self.config = create_config({"data_set": "evaluation", "channels": channels}) 
         
         if len(self.config["channels"]) < 8:
             self.state = "retrain"
@@ -151,7 +151,7 @@ class Evaluator(ExperimentGUI):
         train_full_models(config, title="retrain")
         self.base_model = load_model("retrain_base")
         self.tf_model = load_model("retrain_tf")
-        print(f"Retrained classifiers to use only channels {self.config['channels']}")
+        print(f"Retrained classifiers to use only {len(self.config['channels'])} channels ({self.config['channels']})")
         self.play_sound("on_beep.wav")
 
     def text_break(self, text):
@@ -193,7 +193,6 @@ class Evaluator(ExperimentGUI):
                     clf = feedback
                 except Exception as e:
                     pred = self.get_prediction(model_type="baseline") if feedback else None
-                    print(pred)
                     print(f"Trial {len(self.trials['instruction']) + 1}: Getting prediction failed, defaulting to baseline model. Got error", e)
                     clf = "baseline due to error"
             elif self.trial_state == "feedback":
@@ -225,7 +224,7 @@ class Evaluator(ExperimentGUI):
         while self.running: 
             
             if self.state == "retrain":
-                self.display_text(f"Retraining classifiers to use only {self.config['channels']}")
+                self.display_text(f"Retrained classifiers to use only {len(self.config['channels'])} channels ({self.config['channels']})")
                 self.retrain_classifiers()
                 self.state = "intro"
             
