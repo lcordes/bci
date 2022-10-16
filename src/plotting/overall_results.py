@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 from seaborn import heatmap
 import numpy as np
+import pandas as pd
 import os
 from dotenv import load_dotenv
 load_dotenv()
@@ -15,63 +16,55 @@ sys.path.append(src_dir)
 
 from pipeline.utilities import create_config
 from pipeline.preprocessing import get_users
+from analysis.between_users_transfer import between_classification
+from analysis.within_loocv import within_loocv
+from analysis.within_train_test import within_train_test
 
 
-def compile_results(users, between, within_half, within_loocv):
-    n_users = len(users)
-    results = np.zeros((4, n_users+1))
-    with open(f"{RESULTS_PATH}/transfer_learning/{between}.npy", 'rb') as f:
-        results[:2,:] = np.load(f)
-    with open(f"{RESULTS_PATH}/within/{within_half}.npy", 'rb') as f:
-        results[2, :n_users] = np.mean(np.load(f), axis=1)
-        results[2, n_users] = np.mean(results[2, :n_users])
-    with open(f"{RESULTS_PATH}/within/{within_loocv}.npy", 'rb') as f:
-        results[3, :n_users] = np.load(f)
-        results[3, n_users] = np.mean(results[3, :n_users])
-    return results
+def compile_results(config, title, save=False):
+    users = get_users(config)
+    if config ["data_set"] == "evaluation":
+        users = [f"E{i+1}" for i in range(len(users))]
+    df = pd.DataFrame(columns=users)
 
-
-def plot_overall_results(results, users, config, save=False):
-    x_size = 15 if results.shape[1] > 10 else 9
-    plt.figure(figsize=(x_size, 3))
-    heatmap(
-        results,
-        vmin=np.min(results) - 0.15,
-        vmax=np.max(results) + 0.15,
-        annot=True,
-        xticklabels=users + ["avg"],
-        yticklabels=["Between Base", "Between TF", "Within 50-50", "Within LOOCV"]
-    )
-    title = f"Overall results ({config['data_set']} data)"
-    plt.title(title)
+    print("Working on between users transfer")
+    transfer_data_set = "training" if config["data_set"] == "evaluation" else "within"
+    df.loc["Between Base"], df.loc["Between TF"] = between_classification(config, transfer_data_set=transfer_data_set)
+    print("\nWorking on within 50-50")
+    df.loc["Within 50-50"] = within_train_test(config, train_size=0.5)
+    print("\nWorking on within 67-33")
+    df.loc["Within 67-33"] = within_train_test(config, train_size=0.67)
+    print("\nWorking on within loocv")
+    df.loc["Within LOOCV"] = within_loocv(config)
+    df["avg"] = df.mean(axis=1)
 
     if save:
-        plt.savefig(
-            f"{RESULTS_PATH}/transfer_learning/{title}.png", dpi=400, bbox_inches="tight"
-        )
+        df.to_csv(f"{RESULTS_PATH}/overall/{title}.csv", index_label="Data Split")  
+    return df
+
+
+def plot_overall_results(df, title, save=False):
+    if not isinstance(df, pd.DataFrame):
+        df = pd.read_csv(f"{RESULTS_PATH}/overall/{title}.csv", index_col=0)
+    x_size = 15 if df.shape[1] > 10 else 9
+    plt.figure(figsize=(x_size, 3))
+    heatmap(
+        df,
+        vmin=df.max().max() + 0.15,
+        vmax=df.min().min() - 0.15,
+        annot=True,
+    )
+    plt.title(title)
+    plt.ylabel(None)
+    if save:
+        plt.savefig(f"{RESULTS_PATH}/overall/{title}.png", dpi=400, bbox_inches="tight")
     else:
         plt.show()
 
 
 if __name__ == "__main__":
-
-        # Training
-        config = create_config({"data_set": "training"})
-        users = get_users(config)
-
-        between = "Between classification (training data, 10-12)"
-        within_half = "Within classification 50-50 split (training data, 10-12, 100 reps)"
-        within_loocv = "Within classification loocv(training data, 10-12)"
-        results = compile_results(users, between, within_half, within_loocv)
-        plot_overall_results(results, users, config)
-
-        #Benchmark
-        config = create_config({"data_set": "benchmark"})
-        users = get_users(config)
-
-        between = "Between classification (benchmark data, 8-30)"
-        within_half = "Within classification 50-50 split (benchmark data, 8-30, 100 reps)"
-        within_loocv = "Within classification loocv(benchmark data, 8-30)"
-        results = compile_results(users, between, within_half, within_loocv)
-        plot_overall_results(results, users, config)
-
+    for data_set in ["training", "evaluation", "benchmark"]:    
+        config = create_config({"data_set": data_set})
+        title = f"Overall results ({data_set} data)"
+        df = compile_results(config, title, save=True)
+        plot_overall_results(df, title, save=True)

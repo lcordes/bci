@@ -25,7 +25,6 @@ def process_data(config):
     X_all, X_all_aligned, y_all = [], [], []
 
     # Align data
-    print("Aligning data...")
     for user in users:
         X, y = preprocess_recording(user, config)
         align_mat = get_align_mat(X)
@@ -52,44 +51,57 @@ def train_full_models(config, title=None):
         save_model(tf_model, config, f"{title}_tf")
 
 
-def between_classification(train_config, test_config=None, title="between_transfer_results", save=False):
+def between_classification(config, transfer_data_set="within", save=False):
         X_all, X_all_aligned, y_all, users = process_data(config)
 
-        results = np.zeros((2, len(users)+1))
-        for u, user in enumerate(users):
-            # remove user from training data
-            y_combined = list(itertools.chain(*exclude_idx(y_all, u))) 
-            X_combined = np.concatenate(exclude_idx(X_all, u), axis=0)
-            X_combined_aligned = np.concatenate(exclude_idx(X_all_aligned, u), axis=0)
+        print("Transfer source:", transfer_data_set)
+        # Train models for between data sets transfer
+        if not transfer_data_set == "within":
+            assert transfer_data_set in ["training", "evaluation", "benchmark"]
+            transfer_config = config.copy()
+            transfer_config["data_set"] = transfer_data_set
+            src_X_all, src_X_all_aligned, src_y_all, _ = process_data(transfer_config)
+
+            src_y_combined = list(itertools.chain(*src_y_all)) 
+            src_X_combined = np.concatenate(src_X_all, axis=0)
+            src_X_combined_aligned = np.concatenate(src_X_all_aligned, axis=0)
 
             # Train
-            base_model = train_model(X_combined, y_combined, config)
-            tf_model = train_model(X_combined_aligned, y_combined, config)
-            
-            if save:
-                save_model(base_model, config, f"{user}_base")
-                save_model(tf_model, config, f"{user}_tf")
+            base_model = train_model(src_X_combined, src_y_combined, config)
+            tf_model = train_model(src_X_combined_aligned, src_y_combined, config)            
+
+        base_accs, tf_accs = [], []
+        for u, user in enumerate(users):
+
+            # Train models for within data set, between users transfer
+            if transfer_data_set == "within":
+                # remove user from training data
+                y_combined = list(itertools.chain(*exclude_idx(y_all, u))) 
+                X_combined = np.concatenate(exclude_idx(X_all, u), axis=0)
+                X_combined_aligned = np.concatenate(exclude_idx(X_all_aligned, u), axis=0)
+
+                # Train
+                base_model = train_model(X_combined, y_combined, config)
+                tf_model = train_model(X_combined_aligned, y_combined, config)
+                
+                if save:
+                    save_model(base_model, config, f"{user}_base")
+                    save_model(tf_model, config, f"{user}_tf")
 
             # Test
             base_acc = test_model(X_all[u], y_all[u], base_model)
             tf_acc = test_model(X_all_aligned[u], y_all[u], tf_model)
-            results[0, u] = base_acc
-            results[1, u] = tf_acc
+            base_accs.append(base_acc)
+            tf_accs.append(tf_acc)
             
             print(f"{user}: base acc = {base_acc:.3f}, tf_acc = {tf_acc:.3f}")
         
-        results[0, len(users)] = np.mean(results[0, :len(users)])
-        results[1, len(users)] = np.mean(results[1, :len(users)])
-
         # T-tests
-        print(ttest_1samp(results[1, :len(users)], popmean=0.3333, alternative="greater"))
-        print(ttest_rel(results[0, :len(users)], results[1, :len(users)], alternative="less"))
+        print(ttest_1samp(tf_accs, popmean=0.3333, alternative="greater"))
+        print(ttest_rel(base_accs, tf_accs, alternative="less"))
 
-        print(f"Overall base_acc = {results[0, len(users)]:.3f}, tf_acc = {results[1, len(users)]:.3f}")
-        
-        if save:
-            with open(f"{RESULTS_PATH}/transfer_learning/{title}.npy", 'wb') as f:
-                np.save(f, results)
+        print(f"Overall base_acc = {np.mean(base_accs):.3f}, tf_acc = {np.mean(tf_accs):.3f}")
+        return base_accs, tf_accs
 
 
 def online_simulation(config, title, align_X=True, oversample=1, save=False):
@@ -133,8 +145,8 @@ def online_simulation(config, title, align_X=True, oversample=1, save=False):
 
 
 if __name__ == "__main__":
-    config = create_config({"data_set": "training"})
+    config = create_config({"data_set": "evaluation"})
     #train_full_models(config, title="retrain")
-    between_classification(config)
+    between_classification(config, transfer_data_set="benchmark"), 
     #online_simulation(config, title, align_X=False)
-    
+     

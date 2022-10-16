@@ -1,4 +1,3 @@
-from natsort import natsorted
 from sklearn.model_selection import ParameterGrid, LeaveOneOut
 import numpy as np
 import pandas as pd
@@ -32,18 +31,23 @@ def loocv(X, y, config):
     return np.mean(scores)
 
 
+def within_loocv(config):
+    users = get_users(config)
+    accs = []
+    for user in users:
+        X, y = preprocess_recording(user, config)
+        acc = loocv(X, y, config)
+        accs.append(acc)
+        print(f"{user}: {acc:.3f}")
+    return accs
+
+
 def run_configs(configs, save=False):
     print(f"Getting results for {len(configs)} configs")
    
     results = {"Config": [], "Mean": [], "SD": []}
     for config in configs:
-        users = get_users(config)
-        accs = []
-        for user in users:
-            X, y = preprocess_recording(user, config)
-            acc = loocv(X, y, config)
-            accs.append(acc)
-            print(f"{user}: {acc:.3f}")
+        accs = within_loocv(config)
         mean_acc = np.mean(accs)
         mean_sd = np.std(accs)
         print(f"Acc: {mean_acc:.3f}, SD: {mean_sd:.3f}\n")
@@ -82,7 +86,7 @@ def get_grid_configs(general, clf_specific):
 
 if __name__ == "__main__":
     manual_configs = [
-        create_config({"data_set": "evaluation"})
+        create_config({"data_set": "evaluation", "channels": ["CP1", "C3", "FC1", "FC2", "C4", "CP2", "Fpz"], "bandpass": (8, 13)})
     ]
     print(manual_configs)
 

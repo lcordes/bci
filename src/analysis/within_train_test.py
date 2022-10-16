@@ -17,7 +17,7 @@ from pipeline.utilities import train_model, test_model
 from sklearn.model_selection import train_test_split
 
 
-def within_classification(config, title, save=False):
+def within_train_test(config, train_size=0.5, repetitions=100):
     users = get_users(config)
     X_all, y_all = [], []
     for user in users:
@@ -26,12 +26,11 @@ def within_classification(config, title, save=False):
         y_all.append(y)
 
     n_trials = X_all[0].shape[0]
-    repetitions = 100
     results = np.zeros((len(users), repetitions))
 
     for u, user in enumerate(users):
         for rep in range(repetitions):
-            train_idx, test_idx = train_test_split(list(range(n_trials)), train_size=0.5, stratify=y_all[u])
+            train_idx, test_idx = train_test_split(list(range(n_trials)), train_size=train_size, stratify=y_all[u])
             X_train = X_all[u][train_idx, :, :]
             X_test = X_all[u][test_idx, :, :]
             y_train = y_all[u][train_idx]
@@ -44,14 +43,10 @@ def within_classification(config, title, save=False):
 
     print(f"Average: {np.mean(np.mean(results, axis=1)):.3f}")
 
-    if save:
-        with open(f"{RESULTS_PATH}/within/{title}.npy", 'wb') as f:
-            np.save(f, results)
+    return np.mean(results, axis=1)
 
 
 
 if __name__ == "__main__":
-    config = create_config({"data_set": "benchmark"})
-    title = "Within classification 50-50 split (benchmark data, 8-30, 100 reps)"
-    within_classification(config, title)
-    
+    config = create_config({"data_set": "training"})
+    within_train_test(config)
