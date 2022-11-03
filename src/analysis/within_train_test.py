@@ -17,7 +17,7 @@ from pipeline.utilities import train_model, test_model
 from sklearn.model_selection import train_test_split
 
 
-def within_train_test(config, train_size=0.5, repetitions=100):
+def within_train_test(config, train_size=0.5, repetitions=100, online_sim=False):
     users = get_users(config)
     X_all, y_all = [], []
     for user in users:
@@ -29,8 +29,16 @@ def within_train_test(config, train_size=0.5, repetitions=100):
     results = np.zeros((len(users), repetitions))
 
     for u, user in enumerate(users):
-        for rep in range(repetitions):
-            train_idx, test_idx = train_test_split(list(range(n_trials)), train_size=train_size, stratify=y_all[u])
+        for rep in range(repetitions):           
+            if config["data_set"] == "evaluation" and online_sim:
+                train_idx = list(range(60))
+                test_idx = list(range(60, 90))
+            else:
+                train_idx, test_idx = train_test_split(
+                    list(range(n_trials)),
+                     train_size=train_size,
+                      stratify=y_all[u]
+                )
             X_train = X_all[u][train_idx, :, :]
             X_test = X_all[u][test_idx, :, :]
             y_train = y_all[u][train_idx]
@@ -48,5 +56,5 @@ def within_train_test(config, train_size=0.5, repetitions=100):
 
 
 if __name__ == "__main__":
-    config = create_config({"data_set": "training"})
-    within_train_test(config)
+    config = create_config({"data_set": "evaluation", "discard_railed": True})
+    within_train_test(config, repetitions=1)

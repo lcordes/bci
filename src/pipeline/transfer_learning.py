@@ -7,7 +7,7 @@ def get_align_mat(X):
     of shape (channels, channels)."""
     covs = np.empty((X.shape[0], X.shape[1], X.shape[1]))
     for trial in range(X.shape[0]):
-        covs[trial, :, :] = np.cov(X[trial, :, :])
+        covs[trial, :, :] = np.cov(X[trial, :, :], bias=True) # Signal distribution is normal, use N for bias rather than N-1
     ref_mat = np.mean(covs, axis=0)
     return inv(sqrtm(ref_mat))
     

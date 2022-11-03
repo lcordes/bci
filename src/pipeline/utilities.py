@@ -25,6 +25,7 @@ def create_config(params):
         n_classes=3,
         csp_components=8,
         simulate=False,
+        discard_railed=False
     )
     if ("data_set", "benchmark") in params.items():
         data_set_specific = dict(

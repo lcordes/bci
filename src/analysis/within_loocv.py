@@ -86,7 +86,7 @@ def get_grid_configs(general, clf_specific):
 
 if __name__ == "__main__":
     manual_configs = [
-        create_config({"data_set": "evaluation", "channels": ["CP1", "C3", "FC1", "FC2", "C4", "CP2", "Fpz"], "bandpass": (8, 13)})
+        create_config({"data_set": "training"})
     ]
     print(manual_configs)
 

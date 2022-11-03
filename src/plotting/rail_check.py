@@ -1,7 +1,6 @@
 import numpy as np
 from matplotlib import pyplot as plt
 import seaborn as sns
-from natsort import natsorted
 
 import sys
 from pathlib import Path
@@ -16,30 +15,7 @@ src_dir = str(Path(__file__).parents[1].resolve())
 sys.path.append(src_dir)
 
 from pipeline.utilities import create_config
-from pipeline.preprocessing import preprocess_recording, get_users
-
-RAILED_THRESHOLD = 100000 
-
-
-def check_railed(data):
-    """Take a data array of shape (channels x samples) and check whether channels are railed
-    (i.e. values are above a threshold for more than half of the samples). Return an array of length channels
-    containing zeros (channel clean) and ones (channel railed)"""
-    n_channels = data.shape[0]
-    channels = np.zeros(n_channels)
-    for i in range(n_channels):
-        railed_ratio = np.mean(np.abs(data[i, :]) > RAILED_THRESHOLD)
-        if railed_ratio > 0.1:
-            channels[i] = 1
-    return channels
-
-
-def railed_trials_count(epochs):
-    n_epochs, n_channels, _ = epochs.shape
-    railed = np.zeros(n_channels)
-    for trial in range(n_epochs):
-        railed += check_railed(epochs[trial, :, :])
-    return railed
+from pipeline.preprocessing import preprocess_recording, get_users, railed_trials_count
 
 
 def railed_heatmap(config, save=False):

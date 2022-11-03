@@ -22,21 +22,23 @@ from analysis.within_train_test import within_train_test
 
 
 def compile_results(config, title, save=False):
-    users = get_users(config)
-    if config ["data_set"] == "evaluation":
-        users = [f"E{i+1}" for i in range(len(users))]
+    n_users = len(get_users(config))
+    letter = "E" if config["data_set"] == "evaluation" else "T" if config["data_set"] == "training" else "B"
+    users = [f"{letter}{i+1}" for i in range(n_users)]
     df = pd.DataFrame(columns=users)
 
     print("Working on between users transfer")
     transfer_data_set = "training" if config["data_set"] == "evaluation" else "within"
-    df.loc["Between Base"], df.loc["Between TF"] = between_classification(config, transfer_data_set=transfer_data_set)
+    df.loc["Baseline Transfer"], df.loc["EA Transfer"] = between_classification(config, transfer_data_set=transfer_data_set)
     print("\nWorking on within 50-50")
     df.loc["Within 50-50"] = within_train_test(config, train_size=0.5)
     print("\nWorking on within 67-33")
     df.loc["Within 67-33"] = within_train_test(config, train_size=0.67)
     print("\nWorking on within loocv")
     df.loc["Within LOOCV"] = within_loocv(config)
-    df["avg"] = df.mean(axis=1)
+    mean, std = df.mean(axis=1), df.std(axis=1)
+    df["Mean"] = mean
+    df["SD"] = std
 
     if save:
         df.to_csv(f"{RESULTS_PATH}/overall/{title}.csv", index_label="Data Split")  
@@ -53,6 +55,7 @@ def plot_overall_results(df, title, save=False):
         vmin=df.max().max() + 0.15,
         vmax=df.min().min() - 0.15,
         annot=True,
+        fmt='.2f',
     )
     plt.title(title)
     plt.ylabel(None)
@@ -63,8 +66,9 @@ def plot_overall_results(df, title, save=False):
 
 
 if __name__ == "__main__":
-    for data_set in ["training", "evaluation", "benchmark"]:    
-        config = create_config({"data_set": data_set})
-        title = f"Overall results ({data_set} data)"
+    for data_set in ["benchmark", "training", "evaluation"]:    
+        print(f"Working on {data_set} data")
+        config = create_config({"data_set": data_set, "channels": ["C3", "C4"]})
+        title = f'Classification accuracy per user and classifier ({data_set} data, [C3, C4])'
         df = compile_results(config, title, save=True)
         plot_overall_results(df, title, save=True)
