@@ -17,7 +17,7 @@ sys.path.append(src_dir)
 from pipeline.utilities import create_config
 from pipeline.preprocessing import get_users
 from analysis.between_users_transfer import between_classification
-from analysis.within_loocv import within_loocv
+from analysis.hyperparameter_estimation import within_loocv
 from analysis.within_train_test import within_train_test
 
 
@@ -27,9 +27,11 @@ def compile_results(config, title, save=False):
     users = [f"{letter}{i+1}" for i in range(n_users)]
     df = pd.DataFrame(columns=users)
 
-    print("Working on between users transfer")
-    transfer_data_set = "training" if config["data_set"] == "evaluation" else "within"
-    df.loc["Baseline Transfer"], df.loc["EA Transfer"] = between_classification(config, transfer_data_set=transfer_data_set)
+    #print("Working on between users transfer")
+    # transfer_data_set = "training" if config["data_set"] == "evaluation" else "within"
+    # df.loc["Baseline Transfer"], df.loc["EA Transfer"] = between_classification(config, transfer_data_set=transfer_data_set)
+    print("\nWorking on within 33-67")
+    df.loc["Within 33-67"] = within_train_test(config, train_size=0.33)
     print("\nWorking on within 50-50")
     df.loc["Within 50-50"] = within_train_test(config, train_size=0.5)
     print("\nWorking on within 67-33")
@@ -66,9 +68,9 @@ def plot_overall_results(df, title, save=False):
 
 
 if __name__ == "__main__":
-    for data_set in ["benchmark", "training", "evaluation"]:    
+    for data_set in ["benchmark"]:    
         print(f"Working on {data_set} data")
-        config = create_config({"data_set": data_set, "channels": ["C3", "C4"]})
-        title = f'Classification accuracy per user and classifier ({data_set} data, [C3, C4])'
-        df = compile_results(config, title, save=True)
-        plot_overall_results(df, title, save=True)
+        config = create_config({"data_set": data_set})
+        title = f'Classification accuracy per user and classifier ({data_set})'
+        df = compile_results(config, title, save=False)
+        plot_overall_results(df, title, save=False)

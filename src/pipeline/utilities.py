@@ -21,11 +21,11 @@ def create_config(params):
         model_name="",
         model_type="LDA",
         clf_specific={"shrinkage": "auto", "solver": "eigen"},
-        max_trials=None,
         n_classes=3,
         csp_components=8,
+        csp_reg=None,
         simulate=False,
-        discard_railed=False
+        discard_railed=True
     )
     if ("data_set", "benchmark") in params.items():
         data_set_specific = dict(

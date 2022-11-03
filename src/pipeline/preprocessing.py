@@ -4,7 +4,6 @@ import mne
 from mne.filter import notch_filter, filter_data
 import h5py
 from brainflow.board_shim import BoardShim
-from random import sample
 from pathlib import Path
 import sys
 
@@ -21,11 +20,10 @@ IMAGERY_PERIOD = float(os.environ["IMAGERY_PERIOD"])
 PRACTICE_END_MARKER = int(os.environ["PRACTICE_END_MARKER"])
 TRIAL_END_MARKER = int(os.environ["TRIAL_END_MARKER"])
 ONLINE_FILTER_LENGTH = float(os.environ["ONLINE_FILTER_LENGTH"])
+RAILED_THRESHOLD = int(os.environ["RAILED_THRESHOLD"])
 
 src_dir = str(Path(__file__).parents[1].resolve())
 sys.path.append(src_dir)
-
-RAILED_THRESHOLD = 100000 
 
 
 def get_users(config):
@@ -33,16 +31,6 @@ def get_users(config):
     file_format = "gdf" if config['data_set'] == "benchmark" else "hdf5"
     users = natsorted([path.stem for path in dir.glob(f"*.{file_format}")])
     return users
-
-
-def get_trials_subset(X, y, max_trials):
-    """Return a random subset of trials in X and y (consisting of 'max_trials' trials per class)."""
-    subset_idx = [] 
-    for label in set(y):
-        label_indices = [i for i in range(len(y)) if y[i] == label]
-        subset_idx += sample(label_indices, max_trials)
-    
-    return X[subset_idx,:,:], y[subset_idx]
 
 
 def test_recording_sampling_rate(marker_data):
@@ -88,13 +76,12 @@ def get_not_railed_channels(X, config):
     channel_names = [ch for i, ch in enumerate(config["channels"]) if i in not_railed_idx]
     return not_railed_idx, channel_names
 
+
 def get_eval_user_id(user, config):
     path = f"{DATA_PATH}/recordings/{config['data_set']}/{user}.hdf5"
     with h5py.File(path, "r") as file:
         metadata = dict(file["data"].attrs)
     return metadata["participant number"]
-
-
 
 
 def preprocess_openbci(user, config, calibration=False):
@@ -185,12 +172,13 @@ def preprocess_recording(user, config, calibration=False):
     # Pick relevant channels and filter data
     raw = raw.pick(config["channels"])
 
-    if config["discard_railed"]:
+    if config["discard_railed"] and not config["data_set"] == "benchmark":
         epochs = mne.Epochs(raw, events, tmin=config["tmin"], tmax=config["tmax"], baseline=None, preload=True)
         _, not_railed_channels = get_not_railed_channels(epochs.get_data(), config)
         raw = raw.pick(not_railed_channels)
+        railed_channels = set(config['channels']) - set(not_railed_channels)
         if len(not_railed_channels) < len(config["channels"]):
-            print(f"{user}: {len(not_railed_channels)} channels")
+            print(f"{railed_channels} removed for {user} due to flatlining")
 
     if config["bandpass"]:
         raw.filter(l_freq=config["bandpass"][0], h_freq=config["bandpass"][1])
@@ -202,14 +190,11 @@ def preprocess_recording(user, config, calibration=False):
     X = epochs.get_data()
     y = epochs.events[:, 2]
 
-    # Subset data depending on max_trials and n_classes parameters
+    # Subset data depending on n_classes parameter
     for label in set(y):
         if label > config["n_classes"]:
             X = X[y != label, :, :]
             y = y[y != label]
-
-    if config["max_trials"]:
-        X, y = get_trials_subset(X, y, config["max_trials"])
 
     return X, y
 

@@ -30,7 +30,7 @@ class Classifier:
 class LDAClassifier(Classifier):
     def __init__(self, config):
         self.type = "LDA"
-        self.model = LinearDiscriminantAnalysis(**config["clf_specific"])
+        self.model = LinearDiscriminantAnalysis(**config["clf_specific"], solver="eigen")
         self.model.config = config
 
 

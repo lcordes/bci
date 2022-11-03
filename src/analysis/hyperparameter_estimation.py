@@ -42,22 +42,35 @@ def within_loocv(config):
     return accs
 
 
+def expand_columns(df):
+    columns = df["config"].str.split(";", expand=True)
+    for column in columns:
+        col_name = columns[column][0].split("=")[0]
+        columns.rename(columns={column: col_name}, inplace=True)
+        columns[col_name] = columns[col_name].str.split("=", expand=True)[1]
+    return pd.concat([columns, df.drop(columns=["config"])], axis=1)
+
+
 def run_configs(configs, save=False):
     print(f"Getting results for {len(configs)} configs")
    
-    results = {"Config": [], "Mean": [], "SD": []}
-    for config in configs:
+    results = {"config": [], "mean": [], "sd": []}
+    for i, config in enumerate(configs):
+        print(f"Config {i+1}: {config['description']}")
         accs = within_loocv(config)
         mean_acc = np.mean(accs)
         mean_sd = np.std(accs)
         print(f"Acc: {mean_acc:.3f}, SD: {mean_sd:.3f}\n")
-        results["Config"].append(config["description"])
-        results["Mean"].append(mean_acc)
-        results["SD"].append(mean_sd)
+        results["config"].append(config["description"])
+        results["mean"].append(mean_acc)
+        results["sd"].append(mean_sd)
     
-    if save:
-        df = pd.DataFrame(results)
-        df.to_csv(f"{RESULTS_PATH}/within_loocv/config_results_{datetime.now().strftime('%d-%m-%Y_%H-%M')}.csv")
+        if save and ((i+1) % 1 == 0 or i+1 == len(configs)): # Only save after every tenth config or at end
+            df = pd.DataFrame(results)
+            df = expand_columns(df)
+            checkpoint = "" if i+1 == len(configs) else "checkpoint_"
+            time_point = datetime.now().strftime('%d-%m-%Y_%H-%M')
+            df.to_csv(f"{RESULTS_PATH}/hyperparameter_estimation/{checkpoint}configs_{time_point}.csv")
 
 def get_grid_configs(general, clf_specific):
     permutations = []
@@ -85,13 +98,10 @@ def get_grid_configs(general, clf_specific):
 
 
 if __name__ == "__main__":
-    manual_configs = [
-        create_config({"data_set": "training"})
-    ]
-    print(manual_configs)
-
-    general = {"imagery_window": [3,4]}
-    clf_specific = {"LDA": {"shrinkage": ["auto", None], "solver": ["eigen"]}}
+    general = {"data_set": ["training"], "csp_components": [2, 4, 8],
+     "csp_reg": [None, "ledoit_wolf"], "imagery_window": [2, 3, 4],
+     "bandpass": [(8, 13), (10, 12), (18, 25), (8, 25)]}
+    clf_specific = {"LDA": {"shrinkage": [None, "auto"]}}
     grid_configs = get_grid_configs(general, clf_specific) 
     
-    run_configs(manual_configs, save=True)
+    run_configs(grid_configs, save=True)
