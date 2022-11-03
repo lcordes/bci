@@ -14,12 +14,12 @@ IMAGERY_PERIOD=5
 PRACTICE_END_MARKER=8
 TRIAL_END_MARKER=9
 CLASSES=left,right,down
+ONLINE_FILTER_LENGTH = 10
 
 # GUI aspect ratio
 X_SIZE = 1440
 Y_SIZE = 810
 
-# BCI Server settings
-ONLINE_FILTER_LENGTH = 10
 # Headset specific variables
 SERIAL_PORT=/dev/ttyUSB0 # serial port path on linux-based systems, use COM3 for windows
+RAILED_THRESHOLD = 100000 
