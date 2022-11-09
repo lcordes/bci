@@ -27,22 +27,22 @@ def plot_online_sim_results(title):
         plt.savefig(
             f"{RESULTS_PATH}/transfer_learning/{title}.png", dpi=400, bbox_inches="tight"
         )
-def plot_online_sim_comparison(base_results, tf_results, title):
+def plot_online_sim_comparison(baseline_results, ea_results, title):
     
-        with open(f"{RESULTS_PATH}/transfer_learning/{base_results}.npy", 'rb') as f:
-            base_data = np.load(f)
-        with open(f"{RESULTS_PATH}/transfer_learning/{tf_results}.npy", 'rb') as f:
-            tf_data = np.load(f)
+        with open(f"{RESULTS_PATH}/transfer_learning/{baseline_results}.npy", 'rb') as f:
+            baseline_data = np.load(f)
+        with open(f"{RESULTS_PATH}/transfer_learning/{ea_results}.npy", 'rb') as f:
+            ea_data = np.load(f)
         
-        base_data = np.mean(base_data, axis=1)
-        tf_data = np.mean(tf_data, axis=1) 
+        baseline_data = np.mean(baseline_data, axis=1)
+        ea_data = np.mean(ea_data, axis=1) 
         x = list(range(4, 44, 4))
 
-        n_users = base_data.shape[0]
+        n_users = baseline_data.shape[0]
 
         plt.clf()
-        plt.plot(x, np.mean(tf_data, axis=0), marker="o", color="C1",  markersize=5, label="transfer")
-        plt.plot(x, np.mean(base_data, axis=0), linestyle="dashed", marker="o", color="C7", markersize=5, label="baseline")
+        plt.plot(x, np.mean(ea_data, axis=0), marker="o", color="C1",  markersize=5, label="transfer")
+        plt.plot(x, np.mean(baseline_data, axis=0), linestyle="dashed", marker="o", color="C7", markersize=5, label="baseline")
         plt.ylim([0.2, 0.85])
         plt.title(title)
         plt.legend()

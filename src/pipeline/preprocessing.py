@@ -2,6 +2,7 @@ from natsort import natsorted
 import numpy as np
 import mne
 from mne.filter import notch_filter, filter_data
+from random import sample
 import h5py
 from brainflow.board_shim import BoardShim
 from pathlib import Path
@@ -65,24 +66,35 @@ def railed_trials_count(epochs):
 
 
 def get_not_railed_channels(X, config):
+
     if isinstance(X, str):
         copy_config = config.copy()
         copy_config["discard_railed"] = False
         copy_config["bandpass"] = None
         copy_config["notch"] = None
         X, _ = preprocess_recording(X, copy_config)
+
     railed_count = railed_trials_count(X)
     not_railed_idx = np.flatnonzero(railed_count < 5)
     channel_names = [ch for i, ch in enumerate(config["channels"]) if i in not_railed_idx]
-    return not_railed_idx, channel_names
+    return channel_names
 
 
-def get_eval_user_id(user, config):
-    path = f"{DATA_PATH}/recordings/{config['data_set']}/{user}.hdf5"
+def get_eval_user_id(user):
+    path = f"{DATA_PATH}/recordings/evaluation/{user}.hdf5"
     with h5py.File(path, "r") as file:
         metadata = dict(file["data"].attrs)
     return metadata["participant number"]
 
+
+def get_trials_subset(X, y, max_trials):
+    """Return a random subset of trials in X and y (consisting of 'max_trials' trials per class)."""
+    subset_idx = [] 
+    for label in set(y):
+        label_indices = [i for i in range(len(y)) if y[i] == label]
+        subset_idx += sample(label_indices, max_trials)
+    
+    return X[subset_idx,:,:], y[subset_idx]
 
 def preprocess_openbci(user, config, calibration=False):
     """Load a user recording from an openbci data set, convert data into raw format and extract
@@ -174,11 +186,11 @@ def preprocess_recording(user, config, calibration=False):
 
     if config["discard_railed"] and not config["data_set"] == "benchmark":
         epochs = mne.Epochs(raw, events, tmin=config["tmin"], tmax=config["tmax"], baseline=None, preload=True)
-        _, not_railed_channels = get_not_railed_channels(epochs.get_data(), config)
+        not_railed_channels = get_not_railed_channels(epochs.get_data(), config)
         raw = raw.pick(not_railed_channels)
         railed_channels = set(config['channels']) - set(not_railed_channels)
         if len(not_railed_channels) < len(config["channels"]):
-            print(f"{railed_channels} removed for {user} due to flatlining")
+            print(f"Flatlined channels removed for {user}: {railed_channels}")
 
     if config["bandpass"]:
         raw.filter(l_freq=config["bandpass"][0], h_freq=config["bandpass"][1])
@@ -190,12 +202,15 @@ def preprocess_recording(user, config, calibration=False):
     X = epochs.get_data()
     y = epochs.events[:, 2]
 
-    # Subset data depending on n_classes parameter
+    # Subset data depending on n_classes and max_trials parameters
     for label in set(y):
         if label > config["n_classes"]:
             X = X[y != label, :, :]
             y = y[y != label]
 
+    if config["max_trials"]:
+        X, y = get_trials_subset(X, y, config["max_trials"])
+    
     return X, y
 
 

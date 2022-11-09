@@ -15,6 +15,9 @@ class Classifier:
     def fit(self, X, y):
         self.model.fit(X, y)
 
+    def fit_transform(self, X, y):
+        return self.model.fit_transform(X, y)
+
     def predict(self, X):
         return self.model.predict(X)
 

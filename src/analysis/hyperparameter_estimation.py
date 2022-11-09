@@ -42,13 +42,28 @@ def within_loocv(config):
     return accs
 
 
+
+def clean_string(string):
+    string = str(string)
+    for char in ["'", "{", "}"]:
+        string = string.replace(char, "")
+    return string
+
 def expand_columns(df):
     columns = df["config"].str.split(";", expand=True)
+    df = df.drop(columns=["config"])
     for column in columns:
         col_name = columns[column][0].split("=")[0]
         columns.rename(columns={column: col_name}, inplace=True)
         columns[col_name] = columns[col_name].str.split("=", expand=True)[1]
-    return pd.concat([columns, df.drop(columns=["config"])], axis=1)
+    clf_columns = columns["clf_specific"].str.split(",", expand=True)
+    for column in clf_columns:
+        col_name = clean_string(clf_columns[column][0].split(":")[0])
+        clf_columns.rename(columns={column: col_name}, inplace=True)
+        clf_columns[col_name] = clf_columns[col_name].str.split(":", expand=True)[1].apply(clean_string)
+    columns = columns.drop(columns=["clf_specific"])
+
+    return pd.concat([columns, clf_columns, df], axis=1)
 
 
 def run_configs(configs, save=False):
@@ -65,7 +80,7 @@ def run_configs(configs, save=False):
         results["mean"].append(mean_acc)
         results["sd"].append(mean_sd)
     
-        if save and ((i+1) % 1 == 0 or i+1 == len(configs)): # Only save after every tenth config or at end
+        if save and ((i+1) % 10 == 0 or i+1 == len(configs)): # Only save after every tenth config or at end
             df = pd.DataFrame(results)
             df = expand_columns(df)
             checkpoint = "" if i+1 == len(configs) else "checkpoint_"
@@ -98,10 +113,10 @@ def get_grid_configs(general, clf_specific):
 
 
 if __name__ == "__main__":
-    general = {"data_set": ["training"], "csp_components": [2, 4, 8],
-     "csp_reg": [None, "ledoit_wolf"], "imagery_window": [2, 3, 4],
-     "bandpass": [(8, 13), (10, 12), (18, 25), (8, 25)]}
-    clf_specific = {"LDA": {"shrinkage": [None, "auto"]}}
-    grid_configs = get_grid_configs(general, clf_specific) 
+    grid_configs = []
+    clf_specific = {"LDA": {"shrinkage": [None]}}
+
+    general = {"data_set": ["benchmark"]}
+    grid_configs.extend(get_grid_configs(general, clf_specific))
     
     run_configs(grid_configs, save=True)

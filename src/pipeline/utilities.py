@@ -20,10 +20,11 @@ def create_config(params):
     config = dict(
         model_name="",
         model_type="LDA",
-        clf_specific={"shrinkage": "auto", "solver": "eigen"},
+        clf_specific={"shrinkage": None},
         n_classes=3,
         csp_components=8,
-        csp_reg=None,
+        csp_reg="ledoit_wolf",
+        max_trials=None,
         simulate=False,
         discard_railed=True
     )

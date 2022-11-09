@@ -56,5 +56,5 @@ def within_train_test(config, train_size=0.5, repetitions=100, online_sim=False)
 
 
 if __name__ == "__main__":
-    config = create_config({"data_set": "evaluation", "discard_railed": True})
+    config = create_config({"data_set": "evaluation"})
     within_train_test(config, repetitions=1)

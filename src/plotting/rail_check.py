@@ -44,12 +44,12 @@ def railed_heatmap(config, save=False):
     ax.set_title("Number of railed trials per recording per channel")
 
     if save:
-        plt.savefig(f"{RESULTS_PATH}/diagnostics/{config['data_set']}_data_railed_channels.png", dpi=300)
+        plt.savefig(f"{RESULTS_PATH}/data_exploration/railed_channels_{config['data_set']}.png", dpi=400)
     else:
         plt.show()
 
 
 if __name__ == "__main__":
 
-    config = create_config({"data_set": "evaluation", "bandpass": None, "notch": None})
+    config = create_config({"data_set": "evaluation", "bandpass": None, "notch": None, "discard_railed": False})
     railed_heatmap(config, save=True)

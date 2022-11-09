@@ -17,135 +17,130 @@ from pipeline.preprocessing import preprocess_recording, get_users, get_not_rail
 from pipeline.transfer_learning import get_align_mat, align
 from scipy.stats import ttest_1samp, ttest_rel
 
+
 def exclude_idx(lis, idx):
     return lis[:idx] + lis[idx+1:]
 
 
-def process_data(config):
-    users = get_users(config)
+def get_transfer_set_data(data_set, channels="all"):
+    if channels == "all":
+        transfer_config = create_config({"data_set": data_set, "discard_railed": False, "n_classes": 2})
+    else:
+        transfer_config = create_config({"data_set": data_set, "discard_railed": False, "channels": channels, "n_classes": 2})
 
-    config_copy = config.copy()
-    config_copy["discard_railed"] = False
+    users = get_users(transfer_config)
+
     X_all, X_all_aligned, y_all = [], [], []
 
     # Align data
     for user in users:
-        X, y = preprocess_recording(user, config_copy)
+        X, y = preprocess_recording(user, transfer_config)
         align_mat = get_align_mat(X)
         X_aligned = align(X, align_mat)
         X_all.append(X)
         X_all_aligned.append(X_aligned)
         y_all.append(y)
-    return X_all, X_all_aligned, y_all, users
+    return X_all, X_all_aligned, y_all
+
+
+def between_classification(config, transfer_data_set, online=False):
+        
+        X_all, X_all_aligned, y_all = get_transfer_set_data(transfer_data_set)
+        print("Transfer source:", transfer_data_set)        
+        baseline_accs, ea_accs = [], []
+
+        users = get_users(config)
+        for u, user in enumerate(users):
+            baseline_acc, ea_acc = single_user_between(user, u, X_all, X_all_aligned, y_all, transfer_data_set, config, online)
+            baseline_accs.append(baseline_acc)
+            ea_accs.append(ea_acc)
+            print(f"{user}: baseline acc = {baseline_acc:.3f}, ea_acc = {ea_acc:.3f}")
+        
+        # T-tests
+        print("", ttest_1samp(ea_accs, popmean=0.3333, alternative="greater"))
+        print(ttest_rel(baseline_accs, ea_accs, alternative="less"))
+
+        print(f"Overall baseline_acc = {np.mean(baseline_accs):.3f}, ea_acc = {np.mean(ea_accs):.3f}")
+        return baseline_accs, ea_accs
+
+def single_user_between(user, u, X_all, X_all_aligned, y_all, transfer_data_set, config, online):
+
+    # Re-align tranfer data if test user has reailed channels
+    user_channels = get_not_railed_channels(user, config)
+    if len(user_channels) < len(config["channels"]):
+        print(f"Re-aligning training data for {user}")
+        X_all, X_all_aligned, y_all = get_transfer_set_data(transfer_data_set, user_channels)  
+    
+    # Remove user from transfer set when doing within transfer
+    if transfer_data_set == config["data_set"]:
+        X_all = exclude_idx(X_all, u)
+        X_all_aligned = exclude_idx(X_all_aligned, u)
+        y_all = exclude_idx(y_all, u)
+ 
+    X_combined = np.concatenate(X_all, axis=0)
+    X_combined_aligned = np.concatenate(X_all_aligned, axis=0)
+    y_combined = list(itertools.chain(*y_all)) 
+
+    # get user test data
+    X_test, y_test = preprocess_recording(user, config)
+
+    if online:
+        assert config["data_set"] == "evaluation", "Online transfer only works for the evaluation data set."
+
+        X_calibration, _ = preprocess_recording(user, config, calibration=True)
+        print(X_calibration.shape)
+        align_mat = get_align_mat(X_calibration)
+        user_id = int(get_eval_user_id(user))
+
+        if user_id % 2 == 0:   
+            baseline_idx = list(range(30, 60))
+            ea_idx = list(range(30))
+        else:
+            baseline_idx = list(range(30))
+            ea_idx = list(range(30, 60))
+
+        X_test_aligned = X_test[ea_idx, :]
+        X_test = X_test[baseline_idx, :]
+
+        y_test_aligned = [val for i, val in enumerate(y_test) if i in list(ea_idx)]
+        y_test = [val for i, val in enumerate(y_test) if i in list(baseline_idx)]
+
+    else:        
+        y_test_aligned = y_test
+        align_mat = get_align_mat(X_test)
+        X_test_aligned = align(X_test, align_mat)
+    
+    # Train
+    baseline_model = train_model(X_combined, y_combined, config)
+    ea_model = train_model(X_combined_aligned, y_combined, config)
+    
+    # Test
+    baseline_acc = test_model(X_test, y_test, baseline_model)
+    ea_acc = test_model(X_test_aligned, y_test_aligned, ea_model)
+
+    return baseline_acc, ea_acc
+
+
 
 def train_full_models(config, title=None):
-        X_all, X_all_aligned, y_all, _ = process_data(config)
+        X_all, X_all_aligned, y_all, _ = get_transfer_set_data(config)
 
         y_combined = list(itertools.chain(*y_all)) 
         X_combined = np.concatenate(X_all, axis=0)
         X_combined_aligned = np.concatenate(X_all_aligned, axis=0)
 
         # Train
-        base_model = train_model(X_combined, y_combined, config)
-        tf_model = train_model(X_combined_aligned, y_combined, config)
+        baseline_model = train_model(X_combined, y_combined, config)
+        ea_model = train_model(X_combined_aligned, y_combined, config)
         if not title:
             title = config['data_set']
 
-        save_model(base_model, config, f"{title}_base")
-        save_model(tf_model, config, f"{title}_tf")
-
-
-
-def single_user_between(user, u, X_all, X_all_aligned, y_all, transfer_data_set, config):
-
-    if transfer_data_set == "within":
-        # Remove user from training data
-        X_combined = np.concatenate(exclude_idx(X_all, u), axis=0)
-        X_combined_aligned = np.concatenate(exclude_idx(X_all_aligned, u), axis=0)
-        y_combined = list(itertools.chain(*exclude_idx(y_all, u))) 
-    else:
-        # Get training data from transfer set
-        assert transfer_data_set in ["training", "evaluation", "benchmark"]
-        transfer_config = config.copy()
-        transfer_config["data_set"] = transfer_data_set
-        src_X_all, src_X_all_aligned, src_y_all, _ = process_data(transfer_config)
-
-        X_combined = np.concatenate(src_X_all, axis=0)
-        X_combined_aligned = np.concatenate(src_X_all_aligned, axis=0)
-        y_combined = list(itertools.chain(*src_y_all)) 
-
-    if config["discard_railed"]:
-        # Remove railed channels
-        not_railed_idx, _ = get_not_railed_channels(user, config)
-        X_combined = X_combined[:, not_railed_idx, :]
-        X_combined_aligned = X_combined_aligned[:, not_railed_idx, :]
-        X_test = X_all[u][:, not_railed_idx, :]
-        X_test_aligned = X_all_aligned[u][:, not_railed_idx, :]
-    else: 
-        X_test = X_all[u]
-        X_test_aligned = X_all_aligned[u]
-    
-
-    ### Delete, for online reconstruction
-    block1_idx = list(range(30))
-    block2_idx = list(range(30, 60))
-    user_id = int(get_eval_user_id(user, config))
-
-
-    if user_id % 2 == 0:   
-        X_test = X_test[block2_idx, :]
-        y_test = y_all[u][block2_idx]
-        y_test_aligned = y_all[u][block1_idx]
-    else:
-        X_test = X_test[block1_idx, :]
-        y_test = y_all[u][block1_idx]
-        y_test_aligned = y_all[u][block2_idx]
-    
-    cal_config = config.copy()
-    cal_config["discard_railed"] = False
-    X_calibration, _ = preprocess_recording(user, cal_config, calibration=True)
-    if config["discard_railed"]:
-        X_calibration = X_calibration[:, not_railed_idx, :]
-    align_mat = get_align_mat(X_calibration)
-    X_test_aligned = align(X_test, align_mat)
-    ####
-
-    # Train
-    base_model = train_model(X_combined, y_combined, config)
-    tf_model = train_model(X_combined_aligned, y_combined, config)
-    
-    # Test
-    base_acc = test_model(X_test, y_test, base_model)
-    tf_acc = test_model(X_test_aligned, y_test_aligned, tf_model)
-    
-    if X_combined.shape[1] < len(config["channels"]):
-        print(f"{user}: {X_combined.shape[1]} channels")
-
-    return base_acc, tf_acc
-
-
-def between_classification(config, transfer_data_set="within"):
-        
-        X_all, X_all_aligned, y_all, users = process_data(config)
-        print("Transfer source:", transfer_data_set)        
-        base_accs, tf_accs = [], []
-
-        for u, user in enumerate(users):
-            base_acc, tf_acc = single_user_between(user, u, X_all, X_all_aligned, y_all, transfer_data_set, config)
-            base_accs.append(base_acc)
-            tf_accs.append(tf_acc)
-            print(f"{user}: base acc = {base_acc:.3f}, tf_acc = {tf_acc:.3f}")
-        
-        # T-tests
-        print("", ttest_1samp(tf_accs, popmean=0.3333, alternative="greater"))
-        print(ttest_rel(base_accs, tf_accs, alternative="less"))
-
-        print(f"Overall base_acc = {np.mean(base_accs):.3f}, tf_acc = {np.mean(tf_accs):.3f}")
-        return base_accs, tf_accs
+        save_model(baseline_model, config, f"{title}_baseline")
+        save_model(ea_model, config, f"{title}_ea")
 
 
 def online_simulation(config, title, align_X=True, oversample=1, save=False):
-    X_all, X_all_aligned, y_all, users = process_data(config)
+    X_all, X_all_aligned, y_all, users = get_transfer_set_data(config)
     n_trials = X_all[0].shape[0]
     pool_size = 40
     step_size = 4
@@ -185,8 +180,8 @@ def online_simulation(config, title, align_X=True, oversample=1, save=False):
 
 
 if __name__ == "__main__":
-    config = create_config({"data_set": "training"})
+    config = create_config({"data_set": "benchmark", "n_classes": 2})
     #train_full_models(config, title="retrain")
-    between_classification(config, transfer_data_set="within"), 
+    between_classification(config, transfer_data_set="benchmark", online=False) 
     #online_simulation(config, title, align_X=False)
      

@@ -6,6 +6,7 @@ legacy code
 *.zip
 *scratchpad.py
 test.py
+dev.py
 *.pkl
 !training_tf.pkl
 !training_base.pkl

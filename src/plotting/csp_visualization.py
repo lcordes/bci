@@ -1,102 +1,71 @@
 import numpy as np
-from matplotlib.lines import Line2D
 import matplotlib.pyplot as plt
+import sys
+from pathlib import Path
 
-plt.style.use("fivethirtyeight")
+src_dir = str(Path(__file__).parents[1].resolve())
+sys.path.append(src_dir)
 
+from pipeline.preprocessing import preprocess_recording, get_users
+from pipeline.utilities import create_config
+from pipeline.feature_extraction import CSPExtractor
+from pipeline.transfer_learning import get_align_mat, align
+import numpy as np
+import mne
 import os
 from dotenv import load_dotenv
+import matplotlib.pyplot as plt
 
 load_dotenv()
 DATA_PATH = os.environ["DATA_PATH"]
 TRIAL_OFFSET = float(os.environ["TRIAL_OFFSET"])
+ONLINE_FILTER_LENGTH = float(os.environ["ONLINE_FILTER_LENGTH"])
+RESULTS_PATH = os.environ["RESULTS_PATH"]
 
 
-def plot_events_in_raw(raw, marker_data, sampling_rate):
-    marker_indices = np.argwhere(marker_data).flatten()
-    marker_labels = marker_data[marker_indices].astype(int)
-    onsets = (marker_indices + sampling_rate * TRIAL_OFFSET).astype(int)
+def csp_visualization(config, user, align_X=False, save=False, rm_outliers=True):    
+    if user == "all":
+        users = get_users(config)
+        config["discard_railed"] = False
+    else:
+        users = [user]
 
-    event_arr = np.column_stack(
-        (onsets, np.zeros(len(marker_labels), dtype=int), marker_labels)
-    )
-    raw.plot(
-        events=event_arr,
-        event_color=({1: "r", 2: "g", 3: "b"}),
-        block=True,
-        duration=10,
-        start=100,
-        scalings={"eeg": 2e-4},
-    )
+    X_all, y_all = [], []
+    for u in users:
+        X, y = preprocess_recording(u, config)
+        if align_X:
+            align_mat = get_align_mat(X)
+            X = align(X, align_mat)     
+        X_all.append(X)
+        y_all.extend(y)
 
+    X_all = np.concatenate(X_all, axis=0)
 
-def plot_psd_per_label(epochs, channels, freq_window):
-    fig, ax = plt.subplots(3, 3)
-    label_cols = ["red", "green", "blue"]
-    for channel_idx, channel in enumerate(channels):
-        for label_idx, label in enumerate(["1", "2", "3"]):
-            epochs[label].plot_psd(
-                ax=fig.axes[channel_idx],
-                color=label_cols[label_idx],
-                picks=[channel],
-                fmin=freq_window[0],
-                fmax=freq_window[1],
-                show=False,
-                spatial_colors=False,
-            )
-        fig.axes[channel_idx].set_title(channel)
+    extractor = CSPExtractor(config)
+    extractor.fit(X_all, y_all)
+    info = mne.create_info(ch_names=config['channels'], sfreq=125, ch_types="eeg")
+    info.set_montage("standard_1020")
+    extractor.model.plot_patterns(info, colorbar=False)
 
-    fig.set_tight_layout(True)
-    fig.suptitle("Power spectral density per class")
-    custom_lines = [Line2D([0], [0], color=col, lw=2) for col in label_cols]
-    fig.legend(custom_lines, ["left", "right", "up"])
-    return fig
+    if save:
+        aligned = "_aligned" if align_X else ""
+        title = f"csp_{config['data_set']}_{user}{aligned}"
+        plt.savefig(f"{RESULTS_PATH}/data_exploration/{title}.png", dpi=400)
+        plt.clf()
+    else:
+        plt.show()
 
 
-def plot_log_variance(epochs, channels):
-    # Get bar data
-    epochs_subset = epochs.pick(channels)
-    dat = epochs_subset.get_data()
-    log_var = np.log(np.var(dat, axis=2))  # correct to take log var here and not later?
-    labels = epochs_subset.events[:, 2]
+if __name__ == "__main__":
+    # for data_set in ["training", "evaluation", "benchmark"]:
+    #     for align_X in [False, True]:
+    #         config = create_config({"data_set": data_set, "discard_railed": False})
+    #         csp_visualization(config, user="all", align_X=align_X, save=True)
 
-    bar_dat = np.zeros((dat.shape[1], 3))
-    for label in [1, 2, 3]:
-        bar_dat[:, label - 1] = np.mean(
-            log_var[labels == label, :], axis=0
-        )  # check if axis correct
+    config = create_config({"data_set": "evaluation", "discard_railed": False})
+    csp_visualization(config, user="E06", align_X=False, save=True)
 
-    fig, ax = plt.subplots(3, 3, sharey=True)
-    for idx, channel in enumerate(channels):
-        fig.axes[idx].bar(["left", "right", "up"], bar_dat[idx, :])
-        cutoff = np.min(bar_dat) - 0.2
-        fig.axes[idx].set_ylim(bottom=cutoff)
+    # config = create_config({"data_set": "evaluation", "discard_railed": True,
+    #  "csp_components": 6, "channels": ["C3", "Cz", "FC2", "C4", "CP2", "Fpz"]})
+    # csp_visualization(config, user="E06", align_X=False, save=True)
 
-        fig.axes[idx].set_title(channel)
-
-    fig.set_tight_layout(True)
-    fig.suptitle("Log variance per class")
-    return fig
-
-
-def plot_log_variance_2(transformed, y):
-
-    label_dat = [transformed[y == label, :] for label in [1, 2, 3]]
-    label_dat = [np.log(np.var(dat, axis=0)) for dat in label_dat]
-    fig, ax = plt.subplots(3, 3, sharey=True)
-    for idx in range(8):
-        bar_dat = [label_dat[0][idx], label_dat[1][idx], label_dat[2][idx]]
-        fig.axes[idx].bar(["left", "right", "up"], bar_dat)
-    fig.set_tight_layout(True)
-    fig.suptitle("Log variance per class")
-    return fig
-
-
-def save_preprocessing_plots(name, channels, raw, filtered, epochs, bandpass):
-    path = f"{DATA_PATH}/plots/{name}"
-    raw.plot_psd().savefig(f"{path}_psd_unfiltered.png")
-    filtered.plot_psd().savefig(f"{path}_psd_filtered.png")
-    plot_psd_per_label(epochs, channels, freq_window=bandpass).savefig(
-        f"{path}_psd_per_class.png"
-    )
-    plot_log_variance(epochs, channels).savefig(f"{path}_log_variance_per_class.png")
