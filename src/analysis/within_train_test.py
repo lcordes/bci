@@ -10,8 +10,8 @@ from pathlib import Path
 src_dir = str(Path(__file__).parents[1].resolve())
 sys.path.append(src_dir)
 
-DATA_PATH = os.environ["DATA_PATH"]
-RESULTS_PATH = os.environ["RESULTS_PATH"]
+DATA_PATH = "data" #os.environ["DATA_PATH"]
+RESULTS_PATH = "results" #os.environ["RESULTS_PATH"]
 
 from pipeline.utilities import create_config
 from pipeline.preprocessing import preprocess_recording, get_users
