@@ -15,7 +15,7 @@ from pipeline.utilities import create_config
 from pipeline.preprocessing import get_users
 from analysis.between_users_transfer import between_classification
 from analysis.hyperparameter_estimation import within_loocv
-from analysis.within_train_test import within_train_test
+from src.analysis.within_user_classification import within_train_test
 
 
 def compile_results(config, save=False):
