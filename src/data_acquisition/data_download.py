@@ -24,8 +24,11 @@ def download_data(data_set):
 
 
 if __name__ == "__main__":
-    print("Downloading and extracting training data...")
-    download_data("training")
-    print("Downloading and extracting evaluation data...")
-    download_data("evaluation")
-    print("All data successfully downloaded.")
+    try:
+        print("Downloading and extracting training data...")
+        download_data("training")
+        print("Downloading and extracting evaluation data...")
+        download_data("evaluation")
+        print("All data successfully downloaded.")
+    except:
+        print("Something went wrong. please try again.")
