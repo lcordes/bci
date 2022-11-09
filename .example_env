@@ -4,8 +4,8 @@ RESULTS_PATH=results
 CHANNEL_MAP_PATH=architecture/evaluation_channel_map.json
 
 # Experiment data URL
-DATA_URL=https://files.de-1.osf.io/v1/resources/fb9pu/providers/osfstorage/62d6e853c79a4c393b9e62b1/?zip=
-
+TRAINING_URL=https://files.de-1.osf.io/v1/resources/fb9pu/providers/osfstorage/636b6b5da0cd530712b77f5a/?zip=
+EVALUATION_COL=https://files.de-1.osf.io/v1/resources/fb9pu/providers/osfstorage/636b6b652ea85406b2a2d050/?zip=
 # Experiment setup
 PRACTICE_TRIALS=2
 TRIALS_PER_CLASS=45
@@ -23,3 +23,10 @@ Y_SIZE = 810
 # Headset specific variables
 SERIAL_PORT=/dev/ttyUSB0 # serial port path on linux-based systems, use COM3 for windows
 RAILED_THRESHOLD = 100000 
+
+# Color palette
+TRAINING_COL=0A2E5E
+EVALUATION_COL=40E0D0
+BENCHMARK_COL=808080
+ERROR_COL=FF5733
+ONLINE_COL=4C91EC

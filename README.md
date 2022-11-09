@@ -1,55 +1,39 @@
-# Utilities and Apps for Motor Imagery Prediction using a Brain Computer Interface.
+# Transfer Learning for Motor Imagery Classification using Low-Cost Brain-computer Interfaces
 [![Pipeline tests](https://github.com/lcordes/bci/actions/workflows/run-tests.yml/badge.svg)](https://github.com/lcordes/bci/actions/workflows/run-tests.yml)
-![Overview of the Pipeline](https://github.com/lcordes/bci/blob/main/architecture/pipeline.png)
+![Overview of the Pipeline](https://github.com/lcordes/bci/blob/main/architecture/pipeline.jpg)
+
+This repository contains the code accompanying my master's thesis on the use of transfer learning for motor imagery classification. Two data sets were collected using a low-cost EEG device (the OpenBCI Ultracortex headset) and can be downloaded [here](https://osf.io/fb9pu/). See the figure above for an overview of the overall BCI pipeline.
 
 
-Scripts should be run from the project root directory. You can view optional parameters using -h:
-
-    python3 script.py -h
 
 ## Setup
+Scripts should be run from the project root directory.
 - First, install the necessary requirements (preferably in a virtual environment):
 
         pip install -r requirements.txt
 
-- Rename the '.example_env' file in the root directory to '.env' and update its environment variables
+- Rename the '.example_env' file in the root directory to '.env' and update its environment variables.
 
-## Generating training data and training models
-Use the experiment interface to create a recording of motor imagery trials:
+## Downloading data
 
-    python3 src/apps/train_generator.py
+You can automatically download the collected OpenBCI data sets to the correct folders:
 
-Train a feature extraction and a classifier model, specifying the recording from which you want to train and the name of the model to be created:
+    python3 src/data_acquisition/data_download.py
 
-    python3 src/classification/train_model.py recording_name model_name
+To assess the BCI on medical-grade EEG, I used data set 2a of the fourth BCI competition as a benchmark. You can download it [here](https://www.bbci.de/competition/iv/#download). 
 
-## Online Prediction using the BCI server
-Start the BCI server for data acquisition and motor imagery prediction, specifying the model which should be used for prediction:
+## Collecting data 
 
-    python3 src/bci_server.py --model model_name
+Run the graphical interface used for collecting data:
 
-Alternatively, run the server without connecting to a headset using simulated EEG data instead:
-    
-    python3 src/bci_server.py --board synthetic
+    python3 src/apps/training_generator.py
 
-Then start one of the following applications in a seperate terminal.
+If you do not have an OpenBCI headset at hand you can simulate incoming EEG data:
 
-### Using BCI predictions for movement control in a 2D game
-Start the game environment with obstacles:
+    python3 src/apps/training_generator.py --board synthetic
 
-    python3 src/apps/game.py
+## Evaluating models
 
-Or in sandbox mode without obstacles:
+Use the scripts in `src/analysis` to train and test models. For online classification using the trained models you can run the evaluation GUI:
 
-    python3 src/apps/game.py --sandbox
-
-
-### Assessing model accuracy using the experiment interface
-
-Start the BCI server in client mode:
-
-    python3 src/bci_server.py --client
-
-Use the experiment interface to get feedback on whether your motor imagery is classified correctly by the current model:
-
-    python3 src/apps/accuracy_checker.py
+    python3 src/apps/evaluator.py
