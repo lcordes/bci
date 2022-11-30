@@ -1,7 +1,7 @@
 # Transfer Learning for Motor Imagery Classification using Low-Cost Brain-computer Interfaces
 [![Pipeline tests](https://github.com/lcordes/bci/actions/workflows/run-tests.yml/badge.svg)](https://github.com/lcordes/bci/actions/workflows/run-tests.yml)
 
-This repository contains the code accompanying my master's thesis on the use of transfer learning for motor imagery classification. Two data sets were collected using a low-cost EEG device (the OpenBCI Ultracortex headset) and can be downloaded [here](https://osf.io/fb9pu/). See the figure below for an overview of the overall BCI pipeline.
+This repository contains the code accompanying my [master's thesis](https://fse.studenttheses.ub.rug.nl/29009/1/mAI_2022_CordesL.pdf) on the use of transfer learning for motor imagery classification. Two data sets were collected using a low-cost EEG device (the OpenBCI Ultracortex headset) and can be downloaded [here](https://osf.io/fb9pu/). See the figure below for an overview of the overall BCI pipeline.
 
 ![Overview of the Pipeline](https://github.com/lcordes/bci/blob/main/architecture/pipeline.jpg)
 
