@@ -50,7 +50,7 @@ def csp_visualization(config, user, align_X=False, save=False, rm_outliers=True)
     if save:
         aligned = "_aligned" if align_X else ""
         title = f"csp_{config['data_set']}_{user}{aligned}"
-        plt.savefig(f"{RESULTS_PATH}/data_exploration/{title}.png", dpi=400)
+        plt.savefig(f"{RESULTS_PATH}/data_exploration/{title}.png", dpi=250)
         plt.clf()
     else:
         plt.show()

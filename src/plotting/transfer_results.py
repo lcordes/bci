@@ -25,7 +25,7 @@ def plot_online_sim_results(title):
         plt.title(title)
         plt.gca().xaxis.set_major_locator(MultipleLocator(4))
         plt.savefig(
-            f"{RESULTS_PATH}/transfer_learning/{title}.png", dpi=400, bbox_inches="tight"
+            f"{RESULTS_PATH}/transfer_learning/{title}.png", dpi=250, bbox_inches="tight"
         )
 def plot_online_sim_comparison(baseline_results, ea_results, title):
     
@@ -48,7 +48,7 @@ def plot_online_sim_comparison(baseline_results, ea_results, title):
         plt.legend()
         plt.gca().xaxis.set_major_locator(MultipleLocator(4))
         plt.savefig(
-            f"{RESULTS_PATH}/transfer_learning/{title}.png", dpi=400, bbox_inches="tight"
+            f"{RESULTS_PATH}/transfer_learning/{title}.png", dpi=250, bbox_inches="tight"
         )
 
 def plot_between_results(results, users, data_set, title):
@@ -64,5 +64,5 @@ def plot_between_results(results, users, data_set, title):
     )
     plt.title(title)
     plt.savefig(
-        f"{RESULTS_PATH}/transfer_learning/{title}.png", dpi=400, bbox_inches="tight"
+        f"{RESULTS_PATH}/transfer_learning/{title}.png", dpi=250, bbox_inches="tight"
     )

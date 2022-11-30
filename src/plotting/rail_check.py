@@ -44,7 +44,7 @@ def railed_heatmap(config, save=False):
     ax.set_title("Number of railed trials per recording per channel")
 
     if save:
-        plt.savefig(f"{RESULTS_PATH}/data_exploration/railed_channels_{config['data_set']}.png", dpi=400)
+        plt.savefig(f"{RESULTS_PATH}/data_exploration/railed_channels_{config['data_set']}.png", dpi=250)
     else:
         plt.show()
 

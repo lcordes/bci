@@ -50,24 +50,30 @@ def overall_barplot(df, data_set, save=False):
     plt.figure()
     if data_set == "training":
         df = reshape_df(results[data_set], data_set)
-        barplot(data=df, x="Classifier", y="Accuracy", color=TRAINING_COL, ci="sd", capsize=.1, errcolor=ERROR_COL)
+        df["Classifier"] = df["Classifier"].str.replace(" ", "\n")
+        ax = barplot(data=df, x="Classifier", y="Accuracy", color=TRAINING_COL, ci="sd", capsize=.1, errcolor=ERROR_COL)
     else: 
         if data_set == "benchmark":
             df1 = reshape_df(results["training"], "Training") 
             df2 = reshape_df(results["benchmark"], "Benchmark") 
             palette = [TRAINING_COL, BENCHMARK_COL]
+            df = pd.concat([df1, df2])
+            df["Classifier"] = df["Classifier"].str.replace(" ", "\n")
         else:
             eval_subset = results["evaluation"].drop(["Within 50-50", "Within LOOCV"])
             df1 = reshape_df(eval_subset, "Offline") 
             df2 = reshape_df(results["online"], "Online") 
             palette = [ONLINE_COL, EVALUATION_COL]
-        df = pd.concat([df1, df2])
+            df = pd.concat([df1, df2])
 
-        barplot(data=df, x="Classifier", y="Accuracy", hue="Data Set",
+        ax = barplot(data=df, x="Classifier", y="Accuracy", hue="Data Set",
         ci="sd", errcolor=ERROR_COL, capsize=.1, palette=palette)   
+    ax.tick_params(labelsize=11)
+    ax.set_xlabel("Classifier",fontsize=15)
+    ax.set_ylabel("Accuracy",fontsize=15)
 
     if save:
-        plt.savefig(f"{RESULTS_PATH}/overall/{data_set}_barplot.png", dpi=250)
+        plt.savefig(f"{RESULTS_PATH}/overall/{data_set}_barplot.png", dpi=250, bbox_inches='tight')
         plt.clf()
     else:
         plt.show()
